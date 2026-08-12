@@ -3,7 +3,22 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle } from 'lu
 import { PlayerContext } from '../context/Playercontext';
 
 export default function Player() {
-  const { currentTrack, isPlaying, togglePlay } = useContext(PlayerContext);
+  const { currentTrack, isPlaying, togglePlay, time, seek } = useContext(PlayerContext);
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds) || seconds === 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const progressPercent = time.duration ? (time.currentTime / time.duration) * 100 : 0;
+
+  const handleSeekChange = (e) => {
+    const targetPercent = parseFloat(e.target.value);
+    const newTime = (targetPercent / 100) * time.duration;
+    seek(newTime);
+  };
 
   return (
     <footer className="h-20 bg-[#111827] border-t border-gray-800/60 px-6 flex items-center justify-between z-20 shrink-0">
@@ -26,7 +41,7 @@ export default function Player() {
         )}
       </div>
 
-      {/* Playback Controls & Progress Bar */}
+      {/* Playback Controls & Scrubber */}
       <div className="flex flex-col items-center gap-2 w-2/4 max-w-md">
         <div className="flex items-center gap-6">
           <button className="text-slate-400 hover:text-white transition cursor-pointer"><Shuffle size={16} /></button>
@@ -44,12 +59,25 @@ export default function Player() {
           <button className="text-slate-400 hover:text-white transition cursor-pointer"><SkipForward size={18} /></button>
           <button className="text-slate-400 hover:text-white transition cursor-pointer"><Repeat size={16} /></button>
         </div>
+
+        {/* Dynamic Progress Bar */}
         <div className="w-full flex items-center gap-3 text-xs text-slate-400">
-          <span>0:00</span>
-          <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden cursor-pointer">
-            <div className="w-1/3 h-full bg-[#10B981]"></div>
+          <span>{formatTime(time.currentTime)}</span>
+          <div className="relative flex-1 h-1 bg-gray-800 rounded-full flex items-center group cursor-pointer">
+            <div 
+              className="h-full bg-[#10B981] rounded-full" 
+              style={{ width: `${progressPercent}%` }}
+            />
+            <input 
+              type="range"
+              min="0"
+              max="100"
+              value={progressPercent || 0}
+              onChange={handleSeekChange}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
           </div>
-          <span>3:45</span>
+          <span>{formatTime(time.duration)}</span>
         </div>
       </div>
 
