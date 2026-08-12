@@ -13,9 +13,24 @@ export const PlayerProvider = ({ children }) => {
   });
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState({ currentTime: 0, duration: 0 });
-  const [volume, setVolumeState] = useState(0.8); // 0.0 to 1.0
+  const [volume, setVolumeState] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
+
+  // Safe play helper
+  const safePlay = () => {
+    const playPromise = audioRef.current.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((error) => {
+          console.warn("Audio playback interrupted or blocked:", error);
+          setIsPlaying(false);
+        });
+    }
+  };
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -48,15 +63,13 @@ export const PlayerProvider = ({ children }) => {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.play();
-        setIsPlaying(true);
+        safePlay();
       }
     } else {
       setCurrentTrack(track);
       audioRef.current.src = track.audioUrl;
       audioRef.current.volume = isMuted ? 0 : volume;
-      audioRef.current.play();
-      setIsPlaying(true);
+      safePlay();
     }
   };
 
@@ -70,8 +83,7 @@ export const PlayerProvider = ({ children }) => {
         audioRef.current.src = currentTrack.audioUrl;
       }
       audioRef.current.volume = isMuted ? 0 : volume;
-      audioRef.current.play();
-      setIsPlaying(true);
+      safePlay();
     }
   };
 
@@ -88,11 +100,7 @@ export const PlayerProvider = ({ children }) => {
     if (audioRef.current) {
       audioRef.current.volume = val;
     }
-    if (val === 0) {
-      setIsMuted(true);
-    } else {
-      setIsMuted(false);
-    }
+    setIsMuted(val === 0);
   };
 
   const toggleMute = () => {

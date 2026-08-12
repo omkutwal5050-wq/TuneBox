@@ -1,46 +1,48 @@
 import React from 'react';
-import { Home, Search, Library, Plus, Heart, Music } from 'lucide-react';
+import { Home, Search, Library, Radio } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ currentView, setCurrentView }) {
+  const navItems = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'library', label: 'Your Library', icon: Library },
+  ];
+
   return (
-    <aside className="w-64 bg-[#111827] h-full flex flex-col justify-between p-4 border-r border-gray-800/50 select-none shrink-0">
-      <div className="space-y-6">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-9 h-9 rounded-xl bg-[#10B981] flex items-center justify-center text-slate-950 font-bold">
-            <Music size={22} className="stroke-[2.5]" />
+    <aside className="w-64 bg-[#111827] border-r border-gray-800/60 p-6 flex flex-col justify-between shrink-0 select-none z-10">
+      <div className="space-y-8">
+        {/* Brand Logo */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#10B981] to-emerald-300 flex items-center justify-center shadow-lg shadow-emerald-900/30">
+            <Radio className="text-slate-950" size={20} />
           </div>
-          <span className="text-xl font-extrabold tracking-wide text-white">TuneBox</span>
+          <span className="text-xl font-bold tracking-wider text-white">
+            TUNE<span className="text-[#10B981]">BOX</span>
+          </span>
         </div>
 
-        {/* Navigation */}
+        {/* Main Nav */}
         <nav className="space-y-1">
-          <a href="#" className="flex items-center gap-4 text-white bg-gray-800/60 px-3 py-2.5 rounded-lg font-medium transition">
-            <Home size={20} className="text-[#10B981]" /> Home
-          </a>
-          <a href="#" className="flex items-center gap-4 text-slate-400 hover:text-white px-3 py-2.5 rounded-lg font-medium hover:bg-gray-800/30 transition">
-            <Search size={20} /> Search
-          </a>
-          <a href="#" className="flex items-center gap-4 text-slate-400 hover:text-white px-3 py-2.5 rounded-lg font-medium hover:bg-gray-800/30 transition">
-            <Library size={20} /> Your Library
-          </a>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setCurrentView(item.id)}
+                className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                  isActive 
+                    ? 'bg-[#10B981]/10 text-[#10B981]' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                }`}
+              >
+                <Icon size={20} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
-
-        {/* Quick Actions / Playlists */}
-        <div className="pt-4 border-t border-gray-800/60 space-y-3">
-          <button className="w-full flex items-center gap-3 text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800/30 transition cursor-pointer">
-            <div className="p-1.5 bg-gray-800 rounded">
-              <Plus size={16} />
-            </div>
-            Create Playlist
-          </button>
-          <button className="w-full flex items-center gap-3 text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800/30 transition cursor-pointer">
-            <div className="p-1.5 bg-emerald-500/20 text-[#10B981] rounded">
-              <Heart size={16} />
-            </div>
-            Liked Songs
-          </button>
-        </div>
       </div>
     </aside>
   );
