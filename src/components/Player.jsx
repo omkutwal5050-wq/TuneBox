@@ -7,6 +7,8 @@ export default function Player() {
     currentTrack, 
     isPlaying, 
     togglePlay, 
+    nextTrack, 
+    prevTrack, 
     time, 
     seek, 
     volume, 
@@ -55,7 +57,7 @@ export default function Player() {
       <div className="flex flex-col items-center gap-2 w-2/4 max-w-md">
         <div className="flex items-center gap-6">
           <button className="text-slate-400 hover:text-white transition cursor-pointer"><Shuffle size={16} /></button>
-          <button className="text-slate-400 hover:text-white transition cursor-pointer"><SkipBack size={18} /></button>
+          <button onClick={prevTrack} className="text-slate-400 hover:text-white transition cursor-pointer"><SkipBack size={18} /></button>
           <button 
             onClick={togglePlay}
             className="w-8 h-8 rounded-full bg-white text-slate-950 flex items-center justify-center hover:scale-105 transition cursor-pointer"
@@ -66,7 +68,7 @@ export default function Player() {
               <Play size={16} className="fill-current ml-0.5" />
             )}
           </button>
-          <button className="text-slate-400 hover:text-white transition cursor-pointer"><SkipForward size={18} /></button>
+          <button onClick={nextTrack} className="text-slate-400 hover:text-white transition cursor-pointer"><SkipForward size={18} /></button>
           <button className="text-slate-400 hover:text-white transition cursor-pointer"><Repeat size={16} /></button>
         </div>
 
@@ -91,7 +93,7 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Interactive Volume Control */}
+      {/* Volume Control */}
       <div className="flex items-center justify-end gap-3 w-1/4">
         <button 
           onClick={toggleMute}
