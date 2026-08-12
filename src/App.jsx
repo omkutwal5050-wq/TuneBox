@@ -1,28 +1,39 @@
-import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
-import MainContent from './components/Maincontent';
-import Search from './pages/Search';
-import Library from './pages/Library';
-import Player from './components/Player';
+import React, { useState, useEffect } from 'react';
+import { fetchSongs } from './services/api';
 
-export default function App() {
-  const [currentView, setCurrentView] = useState('home');
+function App() {
+  const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSongs = async () => {
+      const data = await fetchSongs();
+      setSongs(data);
+      setLoading(false);
+    };
+
+    loadSongs();
+  }, []);
+
+  if (loading) {
+    return <div className="loading-screen" style={{ color: 'white', padding: '20px' }}>Loading TuneBox from database...</div>;
+  }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#0B0F17] text-slate-100 overflow-hidden">
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          <Navbar />
-          <div className="flex-1 overflow-y-auto relative">
-            {currentView === 'home' && <MainContent />}
-            {currentView === 'search' && <Search />}
-            {currentView === 'library' && <Library />}
+    <div className="app-container" style={{ padding: '20px', color: 'white', background: '#121212', minHeight: '100vh' }}>
+      <h1>TuneBox Music Library</h1>
+      <div className="song-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        {songs.map((song) => (
+          <div key={song._id} className="song-card" style={{ background: '#181818', padding: '15px', borderRadius: '8px' }}>
+            <img src={song.cover} alt={song.title} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }} />
+            <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px' }}>{song.title}</h3>
+            <p style={{ color: '#b3b3b3', margin: '0 0 10px 0', fontSize: '14px' }}>{song.artist}</p>
+            <audio controls src={song.audioSrc} style={{ width: '100%', height: '30px' }}></audio>
           </div>
-        </div>
+        ))}
       </div>
-      <Player />
     </div>
   );
 }
+
+export default App;
