@@ -1,9 +1,19 @@
 import React, { useContext } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
 
 export default function Player() {
-  const { currentTrack, isPlaying, togglePlay, time, seek } = useContext(PlayerContext);
+  const { 
+    currentTrack, 
+    isPlaying, 
+    togglePlay, 
+    time, 
+    seek, 
+    volume, 
+    isMuted, 
+    changeVolume, 
+    toggleMute 
+  } = useContext(PlayerContext);
 
   const formatTime = (seconds) => {
     if (isNaN(seconds) || seconds === 0) return '0:00';
@@ -81,11 +91,28 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Volume Control */}
+      {/* Interactive Volume Control */}
       <div className="flex items-center justify-end gap-3 w-1/4">
-        <Volume2 size={18} className="text-slate-400" />
-        <div className="w-24 h-1 bg-gray-800 rounded-full overflow-hidden cursor-pointer">
-          <div className="w-2/3 h-full bg-gray-400"></div>
+        <button 
+          onClick={toggleMute}
+          className="text-slate-400 hover:text-white transition cursor-pointer"
+        >
+          {isMuted || volume === 0 ? <VolumeX size={18} className="text-red-400" /> : <Volume2 size={18} />}
+        </button>
+        <div className="relative w-24 h-1 bg-gray-800 rounded-full flex items-center group cursor-pointer">
+          <div 
+            className="h-full bg-gray-300 group-hover:bg-[#10B981] rounded-full transition-colors" 
+            style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
+          />
+          <input 
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => changeVolume(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
         </div>
       </div>
     </footer>

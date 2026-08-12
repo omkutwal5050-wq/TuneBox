@@ -13,9 +13,13 @@ export const PlayerProvider = ({ children }) => {
   });
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState({ currentTime: 0, duration: 0 });
+  const [volume, setVolumeState] = useState(0.8); // 0.0 to 1.0
+  const [isMuted, setIsMuted] = useState(false);
+  const [prevVolume, setPrevVolume] = useState(0.8);
 
   useEffect(() => {
     const audio = audioRef.current;
+    audio.volume = volume;
 
     const handleTimeUpdate = () => {
       setTime({
@@ -50,6 +54,7 @@ export const PlayerProvider = ({ children }) => {
     } else {
       setCurrentTrack(track);
       audioRef.current.src = track.audioUrl;
+      audioRef.current.volume = isMuted ? 0 : volume;
       audioRef.current.play();
       setIsPlaying(true);
     }
@@ -64,6 +69,7 @@ export const PlayerProvider = ({ children }) => {
       if (!audioRef.current.src) {
         audioRef.current.src = currentTrack.audioUrl;
       }
+      audioRef.current.volume = isMuted ? 0 : volume;
       audioRef.current.play();
       setIsPlaying(true);
     }
@@ -76,8 +82,48 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
+  const changeVolume = (newVal) => {
+    const val = parseFloat(newVal);
+    setVolumeState(val);
+    if (audioRef.current) {
+      audioRef.current.volume = val;
+    }
+    if (val === 0) {
+      setIsMuted(true);
+    } else {
+      setIsMuted(false);
+    }
+  };
+
+  const toggleMute = () => {
+    if (isMuted) {
+      setIsMuted(false);
+      const restoredVol = prevVolume || 0.8;
+      setVolumeState(restoredVol);
+      if (audioRef.current) audioRef.current.volume = restoredVol;
+    } else {
+      setPrevVolume(volume);
+      setIsMuted(true);
+      setVolumeState(0);
+      if (audioRef.current) audioRef.current.volume = 0;
+    }
+  };
+
   return (
-    <PlayerContext.Provider value={{ currentTrack, isPlaying, playTrack, togglePlay, time, seek }}>
+    <PlayerContext.Provider 
+      value={{ 
+        currentTrack, 
+        isPlaying, 
+        playTrack, 
+        togglePlay, 
+        time, 
+        seek, 
+        volume, 
+        isMuted, 
+        changeVolume, 
+        toggleMute 
+      }}
+    >
       {children}
     </PlayerContext.Provider>
   );
