@@ -1,71 +1,76 @@
 import React, { useContext } from 'react';
-import { Heart, Music, Play, Pause } from 'lucide-react';
-import { PlayerContext, mockSongs } from '../context/Playercontext';
+import { Play, Pause, Heart, Music } from 'lucide-react';
+import { PlayerContext } from '../context/Playercontext';
+import { mockSongs } from '../data/songsData';
 
 export default function Library() {
-  const { currentTrack, isPlaying, playTrack, likedSongIds, toggleLike } = useContext(PlayerContext);
+  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds } = useContext(PlayerContext);
 
-  const likedSongs = mockSongs.filter((s) => likedSongIds.includes(s.id));
+  const likedSongs = mockSongs.filter((song) => likedSongIds.includes(song.id));
 
   return (
-    <main className="flex-1 bg-[#0B0F17] overflow-y-auto p-8 space-y-8 select-none">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">Your Library</h1>
-      </div>
-
-      {/* Liked Songs List */}
-      <div>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-red-500/20 text-red-500 rounded-lg">
-            <Heart size={20} className="fill-current" />
-          </div>
-          <h2 className="text-xl font-bold text-white">Liked Songs ({likedSongs.length})</h2>
+    <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4 pb-6 border-b border-neutral-800">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-indigo-600 flex items-center justify-center shadow-lg text-white">
+          <Heart size={32} fill="white" />
         </div>
-
-        {likedSongs.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {likedSongs.map((song) => {
-              const isCurrentPlaying = currentTrack?.id === song.id && isPlaying;
-
-              return (
-                <div 
-                  key={song.id} 
-                  onClick={() => playTrack(song)}
-                  className="group relative bg-[#111827]/60 hover:bg-[#1E293B]/80 p-4 rounded-xl border border-gray-800/60 transition cursor-pointer"
-                >
-                  <div className="relative aspect-square rounded-lg overflow-hidden mb-3">
-                    <img src={song.cover} alt={song.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                    
-                    <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                      <div className="w-10 h-10 rounded-full bg-[#10B981] text-slate-950 flex items-center justify-center shadow-lg">
-                        {isCurrentPlaying ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current ml-0.5" />}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="overflow-hidden">
-                      <h3 className={`text-sm font-semibold truncate ${currentTrack?.id === song.id ? 'text-[#10B981]' : 'text-white'}`}>{song.title}</h3>
-                      <p className="text-xs text-slate-400 truncate">{song.artist}</p>
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(song.id);
-                      }} 
-                      className="text-red-500 transition cursor-pointer hover:scale-110"
-                    >
-                      <Heart size={16} className="fill-current" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-slate-400 text-sm">You haven't liked any songs yet. Click the heart icon on any track to save it here!</p>
-        )}
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Liked Songs</h1>
+          <p className="text-sm text-neutral-400">{likedSongs.length} saved tracks in your library</p>
+        </div>
       </div>
-    </main>
+
+      {/* Liked Songs Grid */}
+      {likedSongs.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {likedSongs.map((song) => {
+            const isCurrent = currentTrack?.id === song.id;
+
+            return (
+              <div
+                key={song.id}
+                className="group bg-neutral-900/60 hover:bg-neutral-900 border border-neutral-800/80 hover:border-neutral-700 rounded-xl p-4 transition-all duration-300 shadow-md flex flex-col gap-3"
+              >
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+                  <img
+                    src={song.cover}
+                    alt={song.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                  />
+                  <button
+                    onClick={() => playTrack(song)}
+                    className={`absolute bottom-3 right-3 w-12 h-12 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 transform ${
+                      isCurrent && isPlaying ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100'
+                    }`}
+                  >
+                    {isCurrent && isPlaying ? <Pause size={20} /> : <Play size={20} fill="white" />}
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between gap-2 mt-1">
+                  <div>
+                    <h3 className="font-semibold text-white truncate max-w-[180px]">{song.title}</h3>
+                    <p className="text-xs text-neutral-400 truncate max-w-[180px]">{song.artist}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleLike(song.id)}
+                    className="text-rose-500 hover:text-neutral-400 transition"
+                  >
+                    <Heart size={18} fill="currentColor" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-24 space-y-4 text-neutral-500">
+          <Music size={48} className="mx-auto opacity-40" />
+          <p className="text-lg">No liked songs yet.</p>
+          <p className="text-sm">Click the heart icon on any song to save it to your library.</p>
+        </div>
+      )}
+    </div>
   );
 }

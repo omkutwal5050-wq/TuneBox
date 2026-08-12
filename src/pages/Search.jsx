@@ -1,101 +1,90 @@
-import React, { useState, useContext } from 'react';
-import { Search as SearchIcon, Play, Pause, Heart } from 'lucide-react';
-import { PlayerContext, mockSongs } from '../context/Playercontext';
+import React, { useContext, useState } from 'react';
+import { Play, Pause, Heart, Search as SearchIcon } from 'lucide-react';
+import { PlayerContext } from '../context/Playercontext';
+import { mockSongs } from '../data/songsData';
 
 export default function Search() {
-  const [query, setQuery] = useState('');
-  const { currentTrack, isPlaying, playTrack, likedSongIds, toggleLike } = useContext(PlayerContext);
+  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds } = useContext(PlayerContext);
+  const [localQuery, setLocalQuery] = useState('');
 
-  const filteredSongs = mockSongs.filter(
-    (s) =>
-      s.title.toLowerCase().includes(query.toLowerCase()) ||
-      s.artist.toLowerCase().includes(query.toLowerCase())
-  );
+  const searchResults = mockSongs.filter((song) => {
+    const matchesSearch = song.title.toLowerCase().includes(localQuery.toLowerCase()) ||
+                          song.artist.toLowerCase().includes(localQuery.toLowerCase()) ||
+                          song.genre.toLowerCase().includes(localQuery.toLowerCase());
+    return matchesSearch;
+  });
 
   return (
-    <main className="flex-1 bg-[#0B0F17] overflow-y-auto p-8 space-y-8 select-none">
-      {/* Search Input Header */}
-      <div className="relative max-w-md">
-        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-        <input 
-          type="text" 
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="What do you want to listen to?" 
-          className="w-full bg-[#111827] text-white placeholder-slate-400 pl-12 pr-4 py-3 rounded-full border border-gray-800 focus:outline-none focus:border-[#10B981] transition"
+    <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">
+      {/* Search Header Bar */}
+      <div className="relative max-w-xl">
+        <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-neutral-400">
+          <SearchIcon size={20} />
+        </span>
+        <input
+          type="text"
+          value={localQuery}
+          onChange={(e) => setLocalQuery(e.target.value)}
+          placeholder="Search for songs, artists, or genres..."
+          className="w-full bg-neutral-900 border border-neutral-800 rounded-full pl-12 pr-6 py-3.5 text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition shadow-inner"
         />
       </div>
 
-      {/* Results or Browse Categories */}
-      {query.trim() !== '' ? (
-        <div>
-          <h2 className="text-xl font-bold text-white mb-4">Search Results</h2>
-          {filteredSongs.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredSongs.map((song) => {
-                const isCurrentPlaying = currentTrack?.id === song.id && isPlaying;
-                const isLiked = likedSongIds.includes(song.id);
+      {/* Results Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-white tracking-wide">
+          {localQuery ? `Search Results for "${localQuery}"` : "Explore All Songs"}
+        </h2>
 
-                return (
-                  <div 
-                    key={song.id} 
-                    onClick={() => playTrack(song)}
-                    className="group relative bg-[#111827]/60 hover:bg-[#1E293B]/80 p-4 rounded-xl border border-gray-800/60 transition cursor-pointer"
-                  >
-                    <div className="relative aspect-square rounded-lg overflow-hidden mb-3">
-                      <img src={song.cover} alt={song.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                      <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-full bg-[#10B981] text-slate-950 flex items-center justify-center shadow-lg">
-                          {isCurrentPlaying ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current ml-0.5" />}
-                        </div>
-                      </div>
-                    </div>
+        {searchResults.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {searchResults.map((song) => {
+              const isCurrent = currentTrack?.id === song.id;
+              const isLiked = likedSongIds.includes(song.id);
 
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="overflow-hidden">
-                        <h3 className={`text-sm font-semibold truncate ${currentTrack?.id === song.id ? 'text-[#10B981]' : 'text-white'}`}>{song.title}</h3>
-                        <p className="text-xs text-slate-400 truncate">{song.artist}</p>
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(song.id);
-                        }} 
-                        className={`transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-slate-500 hover:text-red-400'}`}
-                      >
-                        <Heart size={16} className={isLiked ? 'fill-current' : ''} />
-                      </button>
-                    </div>
+              return (
+                <div
+                  key={song.id}
+                  className="group bg-neutral-900/60 hover:bg-neutral-900 border border-neutral-800/80 hover:border-neutral-700 rounded-xl p-4 transition-all duration-300 shadow-md flex flex-col gap-3"
+                >
+                  <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+                    <img
+                      src={song.cover}
+                      alt={song.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <button
+                      onClick={() => playTrack(song)}
+                      className={`absolute bottom-3 right-3 w-12 h-12 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 transform ${
+                        isCurrent && isPlaying ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100'
+                      }`}
+                    >
+                      {isCurrent && isPlaying ? <Pause size={20} /> : <Play size={20} fill="white" />}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-slate-400 text-sm">No songs found matching "{query}"</p>
-          )}
-        </div>
-      ) : (
-        <div>
-          <h2 className="text-xl font-bold text-white mb-4">Browse All</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {[
-              { name: 'Podcasts', color: 'bg-pink-600' },
-              { name: 'Made For You', color: 'bg-indigo-600' },
-              { name: 'Charts', color: 'bg-purple-600' },
-              { name: 'New Releases', color: 'bg-[#10B981]' },
-              { name: 'Discover', color: 'bg-blue-600' },
-              { name: 'Live Events', color: 'bg-amber-600' }
-            ].map((cat, idx) => (
-              <div 
-                key={idx} 
-                className={`${cat.color} aspect-square rounded-xl p-4 font-bold text-lg text-white shadow-lg cursor-pointer hover:scale-105 transition flex items-start justify-between overflow-hidden relative`}
-              >
-                <span>{cat.name}</span>
-              </div>
-            ))}
+
+                  <div className="flex items-start justify-between gap-2 mt-1">
+                    <div>
+                      <h3 className="font-semibold text-white truncate max-w-[180px]">{song.title}</h3>
+                      <p className="text-xs text-neutral-400 truncate max-w-[180px]">{song.artist}</p>
+                    </div>
+                    <button
+                      onClick={() => toggleLike(song.id)}
+                      className={`text-neutral-400 hover:text-rose-500 transition ${isLiked ? 'text-rose-500' : ''}`}
+                    >
+                      <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
-    </main>
+        ) : (
+          <div className="text-center py-20 text-neutral-500">
+            <p className="text-lg">No tracks found matching "{localQuery}".</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
