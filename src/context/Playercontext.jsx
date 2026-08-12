@@ -8,40 +8,58 @@ export const mockSongs = [
     title: 'Midnight Coding',
     artist: 'Lo-Fi Producer',
     cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&q=80',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3'
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    lyrics: "In the quiet of the night...\nLines of code beginning to align...\nSyntax clean, thoughts clear...\nBuilding something bright right here."
   },
   {
     id: 2,
     title: 'Synthwave Night Drive',
     artist: 'Retro Beats',
     cover: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&q=80',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=synthwave-80s-110045.mp3'
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    lyrics: "Neon lights flashing by...\nCruising under midnight sky...\nSynthesizers fill the air...\nNo worries, no despair."
   },
   {
     id: 3,
     title: 'Chill Ambient Waves',
     artist: 'Acoustic Dreams',
     cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=80',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2021/09/06/audio_8fa21359a1.mp3?filename=chill-ambient-10250.mp3'
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    lyrics: "Soft waves crash upon the shore...\nPeaceful mind forevermore...\nRest your weary eyes tonight...\nEverything will be alright."
   },
   {
     id: 4,
     title: 'Deep Focus Flow',
     artist: 'Brainwave Lab',
     cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&q=80',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f03222.mp3?filename=deep-focus-122340.mp3'
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    lyrics: "Deep concentration takes hold...\nStories waiting to be told...\nFocus sharp, mind clear...\nYour true potential is near."
   }
 ];
 
 export const PlayerProvider = ({ children }) => {
-  const audioRef = useRef(new Audio());
+  const audioRef = useRef(null);
+  if (!audioRef.current) {
+    audioRef.current = new Audio();
+  }
+
   const [currentTrack, setCurrentTrack] = useState(mockSongs[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState({ currentTime: 0, duration: 0 });
   const [volume, setVolumeState] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
-  const [likedSongIds, setLikedSongIds] = useState([1]); // Default like song #1
+  const [likedSongIds, setLikedSongIds] = useState([1]);
+
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState('off');
+  const [queue, setQueue] = useState([]);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
 
   const safePlay = () => {
     const playPromise = audioRef.current.play();
@@ -55,43 +73,66 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
+  // Sync audio src on track change
   useEffect(() => {
     const audio = audioRef.current;
-    audio.volume = volume;
+    if (currentTrack?.audioUrl) {
+      const wasPlaying = isPlaying;
+      audio.src = currentTrack.audioUrl;
+      audio.load();
+      if (wasPlaying) {
+        safePlay();
+      }
+    }
+  }, [currentTrack]);
+
+  // Handle Event Listeners
+  useEffect(() => {
+    const audio = audioRef.current;
+    audio.volume = isMuted ? 0 : volume;
 
     const handleTimeUpdate = () => {
       setTime({
         currentTime: audio.currentTime || 0,
-        duration: audio.duration || 0
+        duration: isFinite(audio.duration) ? audio.duration : 0
       });
     };
 
+    const handleLoadedMetadata = () => {
+      setTime((prev) => ({
+        ...prev,
+        duration: isFinite(audio.duration) ? audio.duration : 0
+      }));
+    };
+
     const handleEnded = () => {
-      nextTrack();
+      if (repeatMode === 'one') {
+        audio.currentTime = 0;
+        safePlay();
+      } else {
+        nextTrack();
+      }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('loadeddata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('loadeddata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentTrack]);
+  }, [repeatMode, isShuffle, queue, isMuted, volume]);
 
   const playTrack = (track) => {
     if (currentTrack?.id === track.id) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        safePlay();
-      }
+      togglePlay();
     } else {
       setCurrentTrack(track);
-      audioRef.current.src = track.audioUrl;
-      audioRef.current.volume = isMuted ? 0 : volume;
-      safePlay();
+      setIsPlaying(true);
     }
   };
 
@@ -101,37 +142,102 @@ export const PlayerProvider = ({ children }) => {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      if (!audioRef.current.src) {
-        audioRef.current.src = currentTrack.audioUrl;
-      }
-      audioRef.current.volume = isMuted ? 0 : volume;
       safePlay();
     }
   };
 
   const nextTrack = () => {
+    if (queue.length > 0) {
+      const nextFromQueue = queue[0];
+      setQueue((prev) => prev.slice(1));
+      playTrack(nextFromQueue);
+      return;
+    }
+
+    if (isShuffle) {
+      const randomIndex = Math.floor(Math.random() * mockSongs.length);
+      playTrack(mockSongs[randomIndex]);
+      return;
+    }
+
     const currentIndex = mockSongs.findIndex((s) => s.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % mockSongs.length;
     playTrack(mockSongs[nextIndex]);
   };
 
   const prevTrack = () => {
+    if (audioRef.current.currentTime > 3) {
+      audioRef.current.currentTime = 0;
+      return;
+    }
+
     const currentIndex = mockSongs.findIndex((s) => s.id === currentTrack.id);
     const prevIndex = (currentIndex - 1 + mockSongs.length) % mockSongs.length;
     playTrack(mockSongs[prevIndex]);
   };
 
-  const toggleLike = (songId) => {
-    setLikedSongIds((prev) => 
-      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
-    );
+  // Immediate Seek Handler
+  const seek = (newTime) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isFinite(newTime) && newTime >= 0) {
+      if (audio.readyState >= 1) {
+        audio.currentTime = newTime;
+        setTime((prev) => ({ ...prev, currentTime: newTime }));
+      } else {
+        audio.load();
+        audio.addEventListener('loadedmetadata', () => {
+          audio.currentTime = newTime;
+          setTime((prev) => ({ ...prev, currentTime: newTime }));
+        }, { once: true });
+      }
+    }
   };
 
-  const seek = (newTime) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setTime((prev) => ({ ...prev, currentTime: newTime }));
-    }
+  const toggleShuffle = () => {
+    setIsShuffle((prev) => {
+      const nextState = !prev;
+      showToast(nextState ? "Shuffle On" : "Shuffle Off");
+      return nextState;
+    });
+  };
+
+  const cycleRepeatMode = () => {
+    setRepeatMode((prev) => {
+      if (prev === 'off') {
+        showToast("Repeat All");
+        return 'all';
+      }
+      if (prev === 'all') {
+        showToast("Repeat One");
+        return 'one';
+      }
+      showToast("Repeat Off");
+      return 'off';
+    });
+  };
+
+  const toggleLike = (songId) => {
+    setLikedSongIds((prev) => {
+      const isLiked = prev.includes(songId);
+      showToast(isLiked ? "Removed from Liked Songs" : "Added to Liked Songs");
+      return isLiked ? prev.filter((id) => id !== songId) : [...prev, songId];
+    });
+  };
+
+  const addToQueue = (song) => {
+    setQueue((prev) => [...prev, song]);
+    showToast(`Added "${song.title}" to Queue`);
+  };
+
+  const removeFromQueue = (index) => {
+    setQueue((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearQueue = () => {
+    setQueue([]);
+    showToast("Queue cleared");
   };
 
   const changeVolume = (newVal) => {
@@ -160,6 +266,7 @@ export const PlayerProvider = ({ children }) => {
   return (
     <PlayerContext.Provider 
       value={{ 
+        audioRef,
         currentTrack, 
         isPlaying, 
         playTrack, 
@@ -173,7 +280,16 @@ export const PlayerProvider = ({ children }) => {
         changeVolume, 
         toggleMute, 
         likedSongIds, 
-        toggleLike 
+        toggleLike,
+        isShuffle,
+        toggleShuffle,
+        repeatMode,
+        cycleRepeatMode,
+        queue,
+        addToQueue,
+        removeFromQueue,
+        clearQueue,
+        toastMessage
       }}
     >
       {children}
