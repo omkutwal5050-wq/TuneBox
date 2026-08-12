@@ -2,66 +2,147 @@ import React, { createContext, useState, useRef, useEffect } from 'react';
 
 export const PlayerContext = createContext();
 
+// Production-ready track database (Local static routes)
 export const mockSongs = [
   {
     id: 1,
     title: 'Midnight Coding',
     artist: 'Lo-Fi Producer',
+    genre: 'Lo-Fi',
     cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&q=80',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    audioUrl: '/songs/song1.mp3',
     lyrics: "In the quiet of the night...\nLines of code beginning to align...\nSyntax clean, thoughts clear...\nBuilding something bright right here."
   },
   {
     id: 2,
     title: 'Synthwave Night Drive',
     artist: 'Retro Beats',
+    genre: 'Synthwave',
     cover: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&q=80',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    audioUrl: '/songs/song2.mp3',
     lyrics: "Neon lights flashing by...\nCruising under midnight sky...\nSynthesizers fill the air...\nNo worries, no despair."
   },
   {
     id: 3,
     title: 'Chill Ambient Waves',
     artist: 'Acoustic Dreams',
+    genre: 'Ambient',
     cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=80',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    audioUrl: '/songs/song3.mp3',
     lyrics: "Soft waves crash upon the shore...\nPeaceful mind forevermore...\nRest your weary eyes tonight...\nEverything will be alright."
   },
   {
     id: 4,
     title: 'Deep Focus Flow',
     artist: 'Brainwave Lab',
+    genre: 'Ambient',
     cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&q=80',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    audioUrl: '/songs/song4.mp3',
     lyrics: "Deep concentration takes hold...\nStories waiting to be told...\nFocus sharp, mind clear...\nYour true potential is near."
   }
 ];
 
 export const PlayerProvider = ({ children }) => {
   const audioRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const sourceNodeRef = useRef(null);
+
   if (!audioRef.current) {
     audioRef.current = new Audio();
+    audioRef.current.crossOrigin = "anonymous";
   }
 
-  const [currentTrack, setCurrentTrack] = useState(mockSongs[0]);
+  // Auto-clean stale or broken cached URLs from localStorage
+  const [currentTrack, setCurrentTrack] = useState(() => {
+    const saved = localStorage.getItem('player_currentTrack');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (!parsed?.audioUrl || parsed.audioUrl.includes('http')) {
+          return mockSongs[0];
+        }
+        return parsed;
+      } catch {
+        return mockSongs[0];
+      }
+    }
+    return mockSongs[0];
+  });
+
+  const [volume, setVolumeState] = useState(() => {
+    const saved = localStorage.getItem('player_volume');
+    return saved !== null ? parseFloat(saved) : 0.8;
+  });
+
+  const [likedSongIds, setLikedSongIds] = useState(() => {
+    const saved = localStorage.getItem('player_likedSongs');
+    return saved ? JSON.parse(saved) : [1];
+  });
+
+  const [queue, setQueue] = useState(() => {
+    const saved = localStorage.getItem('player_queue');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState({ currentTime: 0, duration: 0 });
-  const [volume, setVolumeState] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
-  const [likedSongIds, setLikedSongIds] = useState([1]);
-
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState('off');
-  const [queue, setQueue] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGenre, setSelectedGenre] = useState('All');
+
+  // Sync state to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('player_currentTrack', JSON.stringify(currentTrack));
+  }, [currentTrack]);
+
+  useEffect(() => {
+    localStorage.setItem('player_volume', volume.toString());
+  }, [volume]);
+
+  useEffect(() => {
+    localStorage.setItem('player_likedSongs', JSON.stringify(likedSongIds));
+  }, [likedSongIds]);
+
+  useEffect(() => {
+    localStorage.setItem('player_queue', JSON.stringify(queue));
+  }, [queue]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
+  const setupAudioContext = () => {
+    if (!audioContextRef.current) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+
+        const source = ctx.createMediaElementSource(audioRef.current);
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+
+        audioContextRef.current = ctx;
+        analyserRef.current = analyser;
+        sourceNodeRef.current = source;
+      } catch (err) {
+        console.warn("Web Audio API initialization skipped:", err);
+      }
+    } else if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  };
+
   const safePlay = () => {
+    setupAudioContext();
     const playPromise = audioRef.current.play();
     if (playPromise !== undefined) {
       playPromise
@@ -73,7 +154,6 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  // Sync audio src on track change
   useEffect(() => {
     const audio = audioRef.current;
     if (currentTrack?.audioUrl) {
@@ -86,7 +166,6 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [currentTrack]);
 
-  // Handle Event Listeners
   useEffect(() => {
     const audio = audioRef.current;
     audio.volume = isMuted ? 0 : volume;
@@ -176,7 +255,6 @@ export const PlayerProvider = ({ children }) => {
     playTrack(mockSongs[prevIndex]);
   };
 
-  // Immediate Seek Handler
   const seek = (newTime) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -235,6 +313,16 @@ export const PlayerProvider = ({ children }) => {
     setQueue((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const moveInQueue = (fromIndex, toIndex) => {
+    if (toIndex < 0 || toIndex >= queue.length) return;
+    setQueue((prev) => {
+      const updated = [...prev];
+      const [item] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, item);
+      return updated;
+    });
+  };
+
   const clearQueue = () => {
     setQueue([]);
     showToast("Queue cleared");
@@ -263,10 +351,18 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
+  const filteredSongs = mockSongs.filter((song) => {
+    const matchesSearch = song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          song.artist.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesGenre = selectedGenre === 'All' || song.genre === selectedGenre;
+    return matchesSearch && matchesGenre;
+  });
+
   return (
     <PlayerContext.Provider 
       value={{ 
         audioRef,
+        analyserRef,
         currentTrack, 
         isPlaying, 
         playTrack, 
@@ -288,8 +384,14 @@ export const PlayerProvider = ({ children }) => {
         queue,
         addToQueue,
         removeFromQueue,
+        moveInQueue,
         clearQueue,
-        toastMessage
+        toastMessage,
+        searchQuery,
+        setSearchQuery,
+        selectedGenre,
+        setSelectedGenre,
+        filteredSongs
       }}
     >
       {children}

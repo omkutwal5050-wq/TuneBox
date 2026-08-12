@@ -1,9 +1,10 @@
 import React, { useContext, useState, useRef } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1, 
-  Shuffle, ListMusic, FileText 
+  Shuffle, ListMusic, FileText, ArrowUp, ArrowDown 
 } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
+import AudioVisualizer from './AudioVisualizer';
 
 export default function Player() {
   const { 
@@ -25,6 +26,7 @@ export default function Player() {
     cycleRepeatMode,
     queue,
     removeFromQueue,
+    moveInQueue,
     clearQueue,
     toastMessage
   } = useContext(PlayerContext);
@@ -40,31 +42,27 @@ export default function Player() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // Get reliable duration either from audioRef or time state
   const totalDuration = (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0)
     ? audioRef.current.duration
     : time.duration || 0;
 
   const progressPercent = totalDuration > 0 ? (time.currentTime / totalDuration) * 100 : 0;
 
-  // Direct Track Bar Seek Handler
   const handleSeekClick = (e) => {
     if (!progressBarRef.current) return;
-    
     const rect = progressBarRef.current.getBoundingClientRect();
     const clickPositionX = e.clientX - rect.left;
     const barWidth = rect.width;
     const clickRatio = Math.max(0, Math.min(1, clickPositionX / barWidth));
 
     if (totalDuration > 0) {
-      const newTargetTime = clickRatio * totalDuration;
-      seek(newTargetTime);
+      seek(clickRatio * totalDuration);
     }
   };
 
   return (
     <footer className="relative h-20 bg-[#111827] border-t border-gray-800/60 px-6 flex items-center justify-between z-20 shrink-0 select-none">
-      {/* Toast Notification Popup */}
+      {/* Toast Popup */}
       {toastMessage && (
         <div className="absolute top-[-50px] left-1/2 -translate-x-1/2 bg-[#10B981] text-slate-950 font-bold px-4 py-2 rounded-full text-xs shadow-lg animate-bounce z-50">
           {toastMessage}
@@ -93,7 +91,23 @@ export default function Player() {
                       <p className="text-slate-400 text-[10px] truncate">{song.artist}</p>
                     </div>
                   </div>
-                  <button onClick={() => removeFromQueue(idx)} className="text-slate-500 hover:text-red-400 p-1 cursor-pointer">✕</button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => moveInQueue(idx, idx - 1)} 
+                      disabled={idx === 0}
+                      className="text-slate-400 hover:text-white disabled:opacity-30 p-1 cursor-pointer"
+                    >
+                      <ArrowUp size={12} />
+                    </button>
+                    <button 
+                      onClick={() => moveInQueue(idx, idx + 1)} 
+                      disabled={idx === queue.length - 1}
+                      className="text-slate-400 hover:text-white disabled:opacity-30 p-1 cursor-pointer"
+                    >
+                      <ArrowDown size={12} />
+                    </button>
+                    <button onClick={() => removeFromQueue(idx)} className="text-slate-500 hover:text-red-400 p-1 cursor-pointer">✕</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -103,7 +117,7 @@ export default function Player() {
         </div>
       )}
 
-      {/* Lyrics Panel Modal */}
+      {/* Lyrics Modal */}
       {showLyrics && (
         <div className="absolute bottom-24 left-6 w-96 bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-2xl z-50 space-y-3">
           <div className="flex items-center justify-between border-b border-gray-800 pb-2">
@@ -118,8 +132,8 @@ export default function Player() {
         </div>
       )}
 
-      {/* Left: Track Details */}
-      <div className="flex items-center gap-3 w-1/4">
+      {/* Left: Track Details & Visualizer */}
+      <div className="flex items-center gap-4 w-1/4">
         {currentTrack ? (
           <>
             <img 
@@ -130,6 +144,9 @@ export default function Player() {
             <div className="overflow-hidden">
               <h4 className="text-sm font-semibold text-white truncate">{currentTrack.title}</h4>
               <p className="text-xs text-slate-400 truncate">{currentTrack.artist}</p>
+            </div>
+            <div className="hidden lg:block ml-2">
+              <AudioVisualizer />
             </div>
           </>
         ) : (
@@ -156,11 +173,7 @@ export default function Player() {
             onClick={togglePlay}
             className="w-8 h-8 rounded-full bg-white text-slate-950 flex items-center justify-center hover:scale-105 transition cursor-pointer"
           >
-            {isPlaying ? (
-              <Pause size={16} className="fill-current" />
-            ) : (
-              <Play size={16} className="fill-current ml-0.5" />
-            )}
+            {isPlaying ? <Pause size={16} className="fill-current" /> : <Play size={16} className="fill-current ml-0.5" />}
           </button>
 
           <button onClick={nextTrack} className="text-slate-400 hover:text-white transition cursor-pointer">
@@ -179,7 +192,6 @@ export default function Player() {
         {/* Track Timeline Bar */}
         <div className="w-full flex items-center gap-3 text-xs text-slate-400">
           <span className="w-8 text-right font-mono">{formatTime(time.currentTime)}</span>
-          
           <div 
             ref={progressBarRef}
             onClick={handleSeekClick}
@@ -191,18 +203,16 @@ export default function Player() {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            {/* Playhead Marker */}
             <div 
               className="absolute w-3.5 h-3.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2"
               style={{ left: `${progressPercent}%` }}
             />
           </div>
-
           <span className="w-8 font-mono">{formatTime(totalDuration)}</span>
         </div>
       </div>
 
-      {/* Right: Queue, Lyrics & Volume */}
+      {/* Right: Actions & Volume */}
       <div className="flex items-center justify-end gap-3 w-1/4">
         <button 
           onClick={() => { setShowLyrics(!showLyrics); setShowQueue(false); }}
@@ -225,10 +235,7 @@ export default function Player() {
           )}
         </button>
 
-        <button 
-          onClick={toggleMute}
-          className="text-slate-400 hover:text-white transition cursor-pointer"
-        >
+        <button onClick={toggleMute} className="text-slate-400 hover:text-white transition cursor-pointer">
           {isMuted || volume === 0 ? <VolumeX size={18} className="text-red-400" /> : <Volume2 size={18} />}
         </button>
         <div className="relative w-24 h-1 bg-gray-800 rounded-full flex items-center group cursor-pointer">
