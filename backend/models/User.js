@@ -19,12 +19,11 @@ const userSchema = new mongoose.Schema({
         required: true
     },
     likedSongs: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Song'
+        type: mongoose.Schema.Types.Mixed // Allows both numeric/string mock IDs and ObjectIds
     }],
     playlists: [{
         name: { type: String, required: true },
-        songs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Song' }],
+        songs: [{ type: mongoose.Schema.Types.Mixed }],
         createdAt: { type: Date, default: Date.now }
     }]
 }, {

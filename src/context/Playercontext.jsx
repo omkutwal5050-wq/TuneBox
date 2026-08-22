@@ -243,12 +243,35 @@ export const PlayerProvider = ({ children }) => {
     });
   };
 
-  const toggleLike = (songId) => {
-    setLikedSongIds((prev) => {
-      const isLiked = prev.includes(songId);
-      showToast(isLiked ? "Removed from Liked" : "Added to Liked");
-      return isLiked ? prev.filter((id) => id !== songId) : [...prev, songId];
-    });
+  const toggleLike = async (songId) => {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      showToast("Please login to like songs!");
+      return;
+    }
+
+    try {
+      const userObj = JSON.parse(storedUser);
+      const response = await fetch(`http://localhost:5000/api/auth/${userObj._id}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId })
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        const newLikedIds = updatedUser.likedSongs.map(s => typeof s === 'object' ? s.id || s._id : s);
+        setLikedSongIds(newLikedIds);
+        
+        const isNowLiked = newLikedIds.includes(songId);
+        showToast(isNowLiked ? "Added to Liked (Saved to DB)" : "Removed from Liked");
+      }
+    } catch (err) {
+      console.error("Failed to sync like with database:", err);
+      showToast("Error syncing with database");
+    }
   };
 
   const addToQueue = (song) => {

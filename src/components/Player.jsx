@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, 
   Volume2, VolumeX, Shuffle, Repeat, 
-  Mic2, ListMusic 
+  Mic2, ListMusic, Heart 
 } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
 import { LyricsModal } from './LyricsModal';
@@ -23,7 +23,9 @@ export default function Player() {
     isShuffle,
     toggleShuffle,
     repeatMode,
-    cycleRepeatMode
+    cycleRepeatMode,
+    likedSongIds,
+    toggleLike
   } = useContext(PlayerContext);
 
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
@@ -45,11 +47,13 @@ export default function Player() {
     changeVolume(Number(e.target.value));
   };
 
+  const isLiked = likedSongIds.some(id => String(id) === String(currentTrack.id));
+
   return (
     <>
       <div className="h-24 bg-neutral-900 border-t border-neutral-800 flex items-center justify-between px-4 md:px-6 relative z-50">
-        {/* Left: Track Info */}
-        <div className="flex items-center gap-4 w-1/4 min-w-[180px]">
+        {/* Left: Track Info & Like Button */}
+        <div className="flex items-center gap-4 w-1/4 min-w-[200px]">
           <img 
             src={currentTrack.cover} 
             alt={currentTrack.title} 
@@ -59,6 +63,13 @@ export default function Player() {
             <h4 className="text-white text-sm font-semibold truncate">{currentTrack.title}</h4>
             <p className="text-neutral-400 text-xs truncate">{currentTrack.artist}</p>
           </div>
+          <button 
+            onClick={() => toggleLike(currentTrack.id)}
+            className={`transition cursor-pointer ml-2 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-white'}`}
+            title={isLiked ? "Remove from Liked Songs" : "Save to Liked Songs"}
+          >
+            <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
+          </button>
         </div>
 
         {/* Center: Playback Controls */}

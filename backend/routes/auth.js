@@ -68,4 +68,31 @@ router.post('/:userId/playlists', async (req, res) => {
   }
 });
 
+// Toggle Liked Song Route
+router.post('/:userId/like', async (req, res) => {
+  try {
+    const { songId } = req.body;
+    const user = await User.findById(req.params.userId);
+    
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const songIdStr = String(songId);
+    const songIndex = user.likedSongs.findIndex(id => String(id) === songIdStr);
+
+    if (songIndex > -1) {
+      user.likedSongs.splice(songIndex, 1); // Unlike / remove
+    } else {
+      user.likedSongs.push(songId); // Like / add
+    }
+
+    await user.save();
+    
+    // Return updated user populated with their liked songs
+    const updatedUser = await User.findById(user._id).populate('likedSongs');
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
