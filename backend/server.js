@@ -7,6 +7,9 @@ const Song = require('./models/Song');
 const User = require('./models/User');
 const Playlist = require('./models/Playlist');
 
+// Import your auth routes
+const authRoutes = require('./routes/auth');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -18,6 +21,14 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch((err) => console.error('MongoDB connection error:', err));
+
+// ==================== AUTH ROUTES ====================
+app.use('/api/auth', authRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+    res.json({ message: "TuneBox backend is running!" });
+});
 
 // ==================== SONG ROUTES ====================
 

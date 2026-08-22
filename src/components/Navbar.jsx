@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, Bell } from 'lucide-react';
 
-export default function Navbar() {
+export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
   return (
     <header className="h-16 border-b border-gray-800/50 flex items-center justify-between px-8 bg-[#0B0F17]/80 backdrop-blur-md sticky top-0 z-10">
       {/* Search Bar */}
@@ -14,17 +14,35 @@ export default function Navbar() {
         />
       </div>
 
-      {/* User Actions */}
+      {/* User Actions & Auth State */}
       <div className="flex items-center gap-4">
         <button className="p-2 text-slate-400 hover:text-white hover:bg-gray-800 rounded-full transition cursor-pointer">
           <Bell size={20} />
         </button>
-        <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-full p-1 pr-3 cursor-pointer hover:border-gray-700 transition">
-          <div className="w-7 h-7 bg-emerald-500/20 text-[#10B981] rounded-full flex items-center justify-center font-bold text-xs">
-            U
+
+        {currentUser ? (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-full p-1 pr-3">
+              <div className="w-7 h-7 bg-emerald-500/20 text-[#10B981] rounded-full flex items-center justify-center font-bold text-xs">
+                {currentUser.username ? currentUser.username[0].toUpperCase() : 'U'}
+              </div>
+              <span className="text-sm font-medium text-gray-200">{currentUser.username}</span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="bg-gray-800 hover:bg-gray-700 text-xs text-slate-300 px-3 py-2 rounded-full transition cursor-pointer"
+            >
+              Log Out
+            </button>
           </div>
-          <span className="text-sm font-medium text-gray-200">User</span>
-        </div>
+        ) : (
+          <button
+            onClick={onOpenAuth}
+            className="bg-[#10B981] hover:bg-[#0e9f6e] text-black text-sm font-semibold px-5 py-2 rounded-full transition cursor-pointer shadow-lg shadow-emerald-900/20"
+          >
+            Log In / Sign Up
+          </button>
+        )}
       </div>
     </header>
   );
