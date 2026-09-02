@@ -101,6 +101,54 @@ app.post('/api/users/:userId/like', async (req, res) => {
   }
 });
 
+// ==================== SPOTIFY PROXY SEARCH ROUTE ====================
+app.get('/api/proxy/search', async (req, res) => {
+  try {
+    const query = req.query.query;
+    if (!query) return res.json({ results: [] });
+
+    // 1. Get Spotify Access Token using Client Credentials Flow
+    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET).toString('base64')
+      },
+      body: 'grant_type=client_credentials'
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenData.access_token) {
+      return res.status(500).json({ error: 'Failed to authenticate with Spotify API' });
+    }
+
+    // 2. Search tracks from Spotify API
+    const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
+      }
+    });
+
+    const searchData = await searchResponse.json();
+    const items = searchData.tracks?.items || [];
+
+    // 3. Format Spotify tracks to match your frontend data structure
+    const results = items.map(track => ({
+      id: track.id,
+      title: track.name,
+      artist: track.artists.map(artist => artist.name).join(', '),
+      cover: track.album.images[0]?.url || '',
+      file: track.preview_url, // Spotify provides a 30-second audio preview URL
+      genre: 'Spotify'
+    }));
+
+    res.json({ results });
+  } catch (error) {
+    console.error("Spotify Search Error:", error);
+    res.status(500).json({ error: 'Failed to search Spotify catalog' });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -5,6 +5,7 @@ import Maincontent from './components/Maincontent';
 import Profile from './pages/Profile';
 import Player from './components/Player';
 import AuthModal from './components/AuthModal';
+import Search from './pages/Search'; // 1. Import your Search component
 import { PlayerContext } from './context/Playercontext';
 import { mockSongs } from './data/songsData';
 import { Play, Heart } from 'lucide-react';
@@ -57,12 +58,7 @@ export default function App() {
       case 'profile':
         return <Profile currentUser={currentUser} />;
       case 'search':
-        return (
-          <div className="p-8">
-            <h2 className="text-2xl font-bold mb-4">Search</h2>
-            <p className="text-neutral-400">Search functionality coming up next!</p>
-          </div>
-        );
+        return <Search />; // 2. Use your Search component here
       case 'library':
         return (
           <div className="p-8 max-w-5xl mx-auto">
