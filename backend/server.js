@@ -101,51 +101,87 @@ app.post('/api/users/:userId/like', async (req, res) => {
   }
 });
 
-// ==================== SPOTIFY PROXY SEARCH ROUTE ====================
+// ==================== ROBUST MULTI-SOURCE SEARCH PROXY ====================
 app.get('/api/proxy/search', async (req, res) => {
   try {
     const query = req.query.query;
     if (!query) return res.json({ results: [] });
 
-    // 1. Get Spotify Access Token using Client Credentials Flow
-    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET).toString('base64')
-      },
-      body: 'grant_type=client_credentials'
-    });
+    let localSongsFormatted = [];
+    let jamendoSongs = [];
+    let itunesSongs = [];
 
-    const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) {
-      return res.status(500).json({ error: 'Failed to authenticate with Spotify API' });
+    // 1. Local MongoDB Database
+    try {
+      const regex = new RegExp(query, 'i');
+      const localSongs = await Song.find({
+        $or: [{ title: regex }, { artist: regex }, { genre: regex }]
+      });
+
+      localSongsFormatted = localSongs.map(song => ({
+        id: song._id.toString(),
+        title: song.title,
+        artist: song.artist,
+        cover: song.cover || '',
+        file: song.file || song.audioUrl || '',
+        genre: song.genre || 'Local',
+        isFullSong: true
+      }));
+    } catch (err) {
+      console.warn("Local DB search error:", err.message);
     }
 
-    // 2. Search tracks from Spotify API
-    const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
+    // 2. Jamendo API (Full indie tracks)
+    try {
+      const jamendoUrl = `https://api.jamendo.com/v3.0/tracks/?client_id=5c3451e0&format=json&limit=10&search=${encodeURIComponent(query)}`;
+      const jamendoRes = await fetch(jamendoUrl);
+      const jamendoData = await jamendoRes.json();
+      if (jamendoData && jamendoData.results) {
+        jamendoSongs = jamendoData.results.map(track => ({
+          id: String(track.id),
+          title: track.name,
+          artist: track.artist_name,
+          cover: track.image || '',
+          file: track.audio || '',
+          genre: 'Jamendo',
+          isFullSong: true
+        }));
       }
-    });
+    } catch (err) {
+      console.warn("Jamendo API fetch error:", err.message);
+    }
 
-    const searchData = await searchResponse.json();
-    const items = searchData.tracks?.items || [];
+    // 3. iTunes API (Guaranteed mainstream search results)
+    try {
+      const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15`;
+      const itunesRes = await fetch(itunesUrl);
+      const itunesData = await itunesRes.json();
+      if (itunesData && itunesData.results) {
+        itunesSongs = itunesData.results.map(track => ({
+          id: String(track.trackId),
+          title: track.trackName,
+          artist: track.artistName,
+          cover: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg') : '',
+          file: track.previewUrl || '',
+          genre: 'iTunes',
+          isFullSong: false
+        }));
+      }
+    } catch (err) {
+      console.warn("iTunes API fetch error:", err.message);
+    }
 
-    // 3. Format Spotify tracks to match your frontend data structure
-    const results = items.map(track => ({
-      id: track.id,
-      title: track.name,
-      artist: track.artists.map(artist => artist.name).join(', '),
-      cover: track.album.images[0]?.url || '',
-      file: track.preview_url, // Spotify provides a 30-second audio preview URL
-      genre: 'Spotify'
-    }));
+    // Combine results so search never returns empty
+    const combinedResults = [
+      ...localSongsFormatted,
+      ...jamendoSongs,
+      ...itunesSongs
+    ];
 
-    res.json({ results });
+    res.json({ results: combinedResults });
   } catch (error) {
-    console.error("Spotify Search Error:", error);
-    res.status(500).json({ error: 'Failed to search Spotify catalog' });
+    console.error("Search Proxy Error:", error);
+    res.status(500).json({ error: 'Failed to search music catalog' });
   }
 });
 

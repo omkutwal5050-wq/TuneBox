@@ -30,24 +30,18 @@ export default function Search() {
         const res = await fetch(`http://localhost:5000/api/proxy/search?query=${encodeURIComponent(localQuery)}`);
         const json = await res.json();
 
-        // Print the raw JSON structure to your browser console to inspect it
         console.log("Raw Proxy JSON Response:", json);
 
-        // Check all common response paths for the results array
-        const resultsArray = 
-          json?.data?.results || 
-          json?.data?.songs?.results || 
-          json?.results || 
-          json?.songs?.results || 
-          [];
+        // Access the 'results' array sent from the Deezer backend proxy
+        const resultsArray = json?.results || [];
 
         const formatted = resultsArray.map((song) => ({
-          id: song.id || song._id,
-          title: song.name || song.title || 'Unknown Title',
-          artist: song.primaryArtists || song.artists?.primary?.[0]?.name || song.artist || 'Unknown Artist',
-          cover: song.image?.[2]?.url || song.image?.[1]?.url || song.image?.[0]?.url || song.cover || '',
-          file: song.downloadUrl?.[4]?.url || song.downloadUrl?.[2]?.url || song.downloadUrl?.[0]?.url || song.url || '',
-          genre: 'Global'
+          id: song.id,
+          title: song.title || 'Unknown Title',
+          artist: song.artist || 'Unknown Artist',
+          cover: song.cover || '',
+          file: song.file || '',
+          genre: song.genre || 'Deezer'
         }));
 
         setApiResults(formatted);

@@ -19,7 +19,7 @@ export const PlayerProvider = ({ children }) => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (!parsed?.audioUrl) return mockSongs[0];
+        if (!parsed?.file && !parsed?.audioUrl) return mockSongs[0];
         return parsed;
       } catch {
         return mockSongs[0];
@@ -122,9 +122,10 @@ export const PlayerProvider = ({ children }) => {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (currentTrack?.audioUrl) {
+    const audioSrc = currentTrack?.file || currentTrack?.audioUrl;
+    if (audioSrc) {
       const wasPlaying = isPlaying;
-      audio.src = currentTrack.audioUrl;
+      audio.src = audioSrc;
       audio.load();
       if (wasPlaying) safePlay();
     }
