@@ -90,6 +90,13 @@ export const PlayerProvider = ({ children }) => {
   const [repeatMode, setRepeatMode] = useState('off');
   const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => Number(localStorage.getItem('player_crossfade') || 0));
   const [audioQuality, setAudioQuality] = useState(() => localStorage.getItem('player_quality') || 'standard');
+  const [recentlyPlayed, setRecentlyPlayed] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('player_recentlyPlayed') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [toastMessage, setToastMessage] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,9 +141,42 @@ export const PlayerProvider = ({ children }) => {
     localStorage.setItem('player_quality', audioQuality);
   }, [audioQuality]);
 
+  useEffect(() => {
+    localStorage.setItem('player_recentlyPlayed', JSON.stringify(recentlyPlayed));
+  }, [recentlyPlayed]);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const recordRecentlyPlayed = (track) => {
+    if (!track?.id) return;
+    const normalizedTrack = normalizeTrack(track);
+    setRecentlyPlayed(previous => [
+      normalizedTrack,
+      ...previous.filter(item => String(item.id) !== String(normalizedTrack.id))
+    ].slice(0, 50));
+
+    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    if (!storedUser || !token) return;
+
+    try {
+      const user = JSON.parse(storedUser);
+      fetch(`${API_BASE_URL}/users/${user._id}/recently-played`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ songId: normalizedTrack.id })
+      }).then(response => {
+        if (!response.ok) throw new Error(`Recently played request failed (${response.status})`);
+        return response.json();
+      }).catch(error => {
+        console.error('Could not save recently played track:', error);
+      });
+    } catch (error) {
+      console.error('Could not read signed-in user for recently played:', error);
+    }
   };
 
   const setupAudioContext = () => {
@@ -162,13 +202,14 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  const safePlay = () => {
+  const safePlay = (track = currentTrack) => {
     const playPromise = audioRef.current.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
           setIsPlaying(true);
           setPlaybackError('');
+          recordRecentlyPlayed(track);
           setupAudioContext();
         })
         .catch((err) => {
@@ -198,18 +239,6 @@ export const PlayerProvider = ({ children }) => {
   }, [currentTrack]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    if (!storedUser || !token || !currentTrack?.id) return;
-    const user = JSON.parse(storedUser);
-    fetch(`${API_BASE_URL}/users/${user._id}/recently-played`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ songId: currentTrack.id })
-    }).catch(error => console.warn('Could not save recently played track:', error));
-  }, [currentTrack]);
-
-  useEffect(() => {
     const audio = audioRef.current;
     audio.volume = isMuted ? 0 : volume;
 
@@ -235,7 +264,7 @@ export const PlayerProvider = ({ children }) => {
     const handleEnded = () => {
       if (repeatMode === 'one') {
         audio.currentTime = 0;
-        safePlay();
+        safePlay(nextTrack);
       } else {
         nextTrack();
       }
@@ -552,6 +581,8 @@ export const PlayerProvider = ({ children }) => {
         setCrossfadeSeconds,
         audioQuality,
         setAudioQuality,
+        recentlyPlayed,
+        recordRecentlyPlayed,
         queue,
         addToQueue,
         playNext,

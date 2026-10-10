@@ -7,12 +7,14 @@ import Player from './components/Player';
 import AuthModal from './components/AuthModal';
 import Search from './pages/Search'; // 1. Import your Search component
 import Library from './pages/Library';
+import Discover from './pages/Discover';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState('home'); // 'home', 'profile', 'search', 'library'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Check if user is already logged in on initial load
   useEffect(() => {
@@ -52,6 +54,14 @@ export default function App() {
         return <Search />; // 2. Use your Search component here
       case 'library':
         return <Library />;
+      case 'recent':
+        return <Discover view="recent" />;
+      case 'recommended':
+        return <Discover view="recommended" />;
+      case 'radio':
+        return <Discover view="radio" />;
+      case 'mood':
+        return <Discover view="mood" />;
       case 'home':
       default:
         return <Maincontent />;
@@ -100,7 +110,12 @@ export default function App() {
           {/* Main Body */}
           <div className="flex flex-1 overflow-hidden">
             {/* Sidebar receives currentView and setCurrentView */}
-            <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+            <Sidebar
+              currentView={currentView}
+              setCurrentView={setCurrentView}
+              collapsed={sidebarCollapsed}
+              onToggle={() => setSidebarCollapsed(previous => !previous)}
+            />
             
             <main className="flex-1 overflow-y-auto">
               {renderMainContent()}

@@ -1,22 +1,29 @@
 import React from 'react';
-import { Home, Search, Library, Radio } from 'lucide-react';
+import { Home, Search, Library, Radio, Clock3, Sparkles, Menu, Smile } from 'lucide-react';
 
-export default function Sidebar({ currentView, setCurrentView }) {
+export default function Sidebar({ currentView, setCurrentView, collapsed, onToggle }) {
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'search', label: 'Search', icon: Search },
     { id: 'library', label: 'Your Library', icon: Library },
+    { id: 'recent', label: 'Recently Played', icon: Clock3 },
+    { id: 'recommended', label: 'Recommended', icon: Sparkles },
+    { id: 'radio', label: 'Radio', icon: Radio },
+    { id: 'mood', label: 'Mood', icon: Smile },
   ];
 
   return (
-    <aside className="w-64 bg-[#111827] border-r border-gray-800/60 p-6 flex flex-col justify-between shrink-0 select-none z-10">
+    <aside className={`${collapsed ? 'w-20' : 'w-64'} bg-[#111827] border-r border-gray-800/60 p-4 md:p-6 flex flex-col justify-between shrink-0 select-none z-10 transition-all duration-200`}>
       <div className="space-y-8">
+        <button onClick={onToggle} className="mb-2 rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <Menu size={22} />
+        </button>
         {/* Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#10B981] to-emerald-300 flex items-center justify-center shadow-lg shadow-emerald-900/30">
             <Radio className="text-slate-950" size={20} />
           </div>
-          <span className="text-xl font-bold tracking-wider text-white">
+          <span className={`${collapsed ? 'hidden' : ''} text-xl font-bold tracking-wider text-white`}>
             TUNE<span className="text-[#10B981]">BOX</span>
           </span>
         </div>
@@ -38,7 +45,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
                 }`}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                <span className={collapsed ? 'hidden' : ''}>{item.label}</span>
               </button>
             );
           })}
