@@ -9,7 +9,9 @@ export default function Profile({ currentUser }) {
     if (!userId) return;
 
     // Fetch user details from your backend API
-    fetch(`http://localhost:5000/api/auth/${userId}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/${userId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    })
       .then(res => res.json())
       .then(data => setUserData(data))
       .catch(err => console.error("Error fetching profile:", err));

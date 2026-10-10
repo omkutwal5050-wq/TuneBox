@@ -1,4 +1,36 @@
-# React + Vite
+# TuneBox
+
+## Development
+
+Install both dependency sets, configure `backend/.env` from
+[`backend/.env.example`](./backend/.env.example), then run:
+
+```powershell
+npm run dev
+cd backend
+npm run dev
+```
+
+The backend serves local media at `/songs`, `/coverpages`, and uploaded files at
+`/uploads`. Set `VITE_API_URL` to the deployed API base URL when building the
+frontend.
+
+## API additions
+
+- JWT authentication is returned by `/api/auth/register` and `/api/auth/login`.
+- Existing profile, likes, and embedded playlist fields remain compatible.
+- `POST /api/users/:userId/recently-played` stores the last 50 tracks.
+- `GET /api/recommendations/:userId` returns personalized local tracks.
+- `GET /api/catalog/facets` returns genres, artists, and albums.
+- `POST /api/admin/songs` accepts `title`, `artist`, `genre`, optional metadata,
+  and multipart `audio` plus `cover` files for admin users.
+
+Run backend regression tests with:
+
+```powershell
+cd backend
+npm test
+```
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

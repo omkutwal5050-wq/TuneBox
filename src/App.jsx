@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/sidebar';
 import Maincontent from './components/Maincontent';
@@ -6,17 +6,13 @@ import Profile from './pages/Profile';
 import Player from './components/Player';
 import AuthModal from './components/AuthModal';
 import Search from './pages/Search'; // 1. Import your Search component
-import { PlayerContext } from './context/Playercontext';
-import { mockSongs } from './data/songsData';
-import { Play, Heart } from 'lucide-react';
+import Library from './pages/Library';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState('home'); // 'home', 'profile', 'search', 'library'
-
-  const { likedSongIds, playTrack } = useContext(PlayerContext);
 
   // Check if user is already logged in on initial load
   useEffect(() => {
@@ -47,11 +43,6 @@ export default function App() {
     );
   }
 
-  // Filter mockSongs to find the ones that match the user's liked song IDs
-  const likedSongsList = mockSongs.filter((song) => 
-    likedSongIds.some((id) => String(id) === String(song.id))
-  );
-
   // Render the appropriate main content based on currentView
   const renderMainContent = () => {
     switch (currentView) {
@@ -60,54 +51,7 @@ export default function App() {
       case 'search':
         return <Search />; // 2. Use your Search component here
       case 'library':
-        return (
-          <div className="p-8 max-w-5xl mx-auto">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Heart size={32} fill="white" className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-extrabold text-white">Liked Songs</h1>
-                <p className="text-neutral-400 text-sm">{likedSongsList.length} saved tracks</p>
-              </div>
-            </div>
-
-            {likedSongsList.length === 0 ? (
-              <div className="text-center py-16 bg-neutral-900/50 rounded-2xl border border-neutral-800">
-                <p className="text-neutral-400 text-lg mb-2">No liked songs yet!</p>
-                <p className="text-neutral-500 text-sm">Click the heart icon on any song to add it to your library.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {likedSongsList.map((song, index) => (
-                  <div 
-                    key={song.id}
-                    onClick={() => playTrack(song)}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-neutral-800/60 transition group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-neutral-500 font-medium w-6 text-center">{index + 1}</span>
-                      <div className="relative">
-                        <img src={song.cover} alt={song.title} className="w-12 h-12 rounded-lg object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition rounded-lg">
-                          <Play size={18} fill="white" className="text-white ml-0.5" />
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-white font-semibold text-sm group-hover:text-emerald-400 transition">{song.title}</h4>
-                        <p className="text-neutral-400 text-xs">{song.artist}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Heart size={18} fill="currentColor" className="text-rose-500" />
-                      <span className="text-neutral-400 text-xs">{song.duration || "3:00"}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
+        return <Library />;
       case 'home':
       default:
         return <Maincontent />;

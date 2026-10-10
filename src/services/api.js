@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const authHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Fetch all songs from MongoDB
 export const fetchSongs = async () => {
@@ -27,7 +32,7 @@ export const addSong = async (songData) => {
 // Fetch user data (liked songs, playlists)
 export const fetchUser = async (userId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/users/${userId}`);
+    const response = await axios.get(`${API_BASE_URL}/users/${userId}`, { headers: authHeaders() });
     return response.data;
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -38,7 +43,7 @@ export const fetchUser = async (userId) => {
 // Like or Unlike a song
 export const toggleLikeSong = async (userId, songId) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/users/${userId}/like`, { songId });
+    const response = await axios.post(`${API_BASE_URL}/users/${userId}/like`, { songId }, { headers: authHeaders() });
     return response.data;
   } catch (error) {
     console.error('Error toggling like:', error);

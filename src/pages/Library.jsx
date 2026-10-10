@@ -6,7 +6,7 @@ import { mockSongs } from '../data/songsData';
 export default function Library() {
   const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds } = useContext(PlayerContext);
 
-  const likedSongs = mockSongs.filter((song) => likedSongIds.includes(song.id));
+  const likedSongs = mockSongs.filter((song) => likedSongIds.some(id => String(id) === String(song.id)));
 
   return (
     <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">

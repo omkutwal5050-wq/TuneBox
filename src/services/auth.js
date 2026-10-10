@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api/auth';
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth`;
 
 export const loginUser = async (email, password) => {
     const response = await fetch(`${API_URL}/login`, {
@@ -7,7 +7,7 @@ export const loginUser = async (email, password) => {
         body: JSON.stringify({ email, password })
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Login failed');
+    if (!response.ok) throw new Error(data.error || data.message || `Login failed (${response.status})`);
     return data;
 };
 
@@ -18,6 +18,6 @@ export const registerUser = async (username, email, password) => {
         body: JSON.stringify({ username, email, password })
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Registration failed');
+    if (!response.ok) throw new Error(data.error || data.message || `Registration failed (${response.status})`);
     return data;
 };

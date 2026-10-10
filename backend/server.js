@@ -1,21 +1,100 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const { Readable } = require('stream');
+const multer = require('multer');
 require('dotenv').config();
 
 const Song = require('./models/Song');
 const User = require('./models/User');
 const Playlist = require('./models/Playlist');
+const { requireAuth, sameUser, requireAdmin } = require('./middleware/auth');
 
 // Import your auth routes
 const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const API_ORIGIN = process.env.PUBLIC_API_ORIGIN || `http://localhost:${PORT}`;
+if (!process.env.MONGO_URI) {
+  console.error('MONGO_URI is missing. Create backend/.env before starting the server.');
+}
+if (!process.env.JWT_SECRET) {
+  console.warn('JWT_SECRET is missing. A development fallback will be used; configure it before production.');
+}
+const toMediaUrl = (value, directory) => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  const normalized = value.replace(/^public[\\/]/, '').replace(/^[/\\]+/, '');
+  if (normalized.startsWith(`${directory}/`)) {
+    return `${API_ORIGIN}/${normalized}`;
+  }
+  return `${API_ORIGIN}/${directory}/${normalized}`;
+};
+
+const allowedPreviewHosts = new Set([
+  'audio.jamendo.com',
+  'api.jamendo.com',
+  'audio-ssl.itunes.apple.com',
+  'audio.itunes.apple.com',
+  'itunes.apple.com'
+]);
+
+const toPreviewProxyUrl = (value) => {
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+    if (!allowedPreviewHosts.has(parsed.hostname.toLowerCase())) return value;
+    return `${API_ORIGIN}/api/proxy/audio?url=${encodeURIComponent(parsed.toString())}`;
+  } catch {
+    return '';
+  }
+};
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/auth') && ['POST'].includes(req.method)) {
+    const key = `${req.ip}:${req.path}`;
+    const now = Date.now();
+    req.app.locals.authRate = req.app.locals.authRate || new Map();
+    const entry = req.app.locals.authRate.get(key) || { count: 0, startedAt: now };
+    if (now - entry.startedAt > 15 * 60 * 1000) {
+      entry.count = 0;
+      entry.startedAt = now;
+    }
+    entry.count += 1;
+    req.app.locals.authRate.set(key, entry);
+    if (entry.count > 20) return res.status(429).json({ error: 'Too many authentication attempts' });
+  }
+  next();
+});
+app.use('/songs', express.static(path.resolve(__dirname, '../public/songs')));
+app.use('/coverpages', express.static(path.resolve(__dirname, '../public/coverpages')));
+app.use('/uploads', express.static(path.resolve(__dirname, '../public/uploads')));
+
+const uploadsDirectory = path.resolve(__dirname, '../public/uploads');
+fs.mkdirSync(uploadsDirectory, { recursive: true });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDirectory,
+    filename: (req, file, callback) => {
+      const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      callback(null, safeName);
+    }
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (req, file, callback) => {
+    const allowed = file.fieldname === 'audio'
+      ? /^audio\//.test(file.mimetype)
+      : /^image\//.test(file.mimetype);
+    callback(allowed ? null : new Error('Unsupported media type'), allowed);
+  }
+});
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -42,6 +121,36 @@ app.get('/api/songs', async (req, res) => {
   }
 });
 
+app.get('/api/proxy/audio', async (req, res) => {
+  try {
+    const sourceUrl = String(req.query.url || '');
+    const parsed = new URL(sourceUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol) || !allowedPreviewHosts.has(parsed.hostname.toLowerCase())) {
+      return res.status(400).json({ error: 'Unsupported preview source' });
+    }
+
+    const headers = {};
+    if (req.headers.range) headers.Range = req.headers.range;
+    const upstream = await fetch(parsed, { headers, redirect: 'follow' });
+    if (!upstream.ok && upstream.status !== 206) {
+      return res.status(upstream.status).json({ error: 'Preview source is unavailable' });
+    }
+
+    res.status(upstream.status);
+    const passthroughHeaders = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'];
+    passthroughHeaders.forEach(header => {
+      const value = upstream.headers.get(header);
+      if (value) res.setHeader(header, value);
+    });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (!upstream.body) return res.end();
+    Readable.fromWeb(upstream.body).pipe(res);
+  } catch (error) {
+    console.error('Preview proxy error:', error.message);
+    res.status(502).json({ error: 'Unable to load audio preview' });
+  }
+});
+
 // Add a new song
 app.post('/api/songs', async (req, res) => {
   try {
@@ -50,6 +159,41 @@ app.post('/api/songs', async (req, res) => {
     res.status(201).json(savedSong);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/songs', requireAuth, requireAdmin, upload.fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { title, artist, genre, album = '', duration = 0, audioQuality = 'standard', lyrics = '' } = req.body;
+    const audio = req.files?.audio?.[0];
+    const cover = req.files?.cover?.[0];
+    if (!title || !artist || !genre || !audio || !cover) {
+      return res.status(400).json({ error: 'title, artist, genre, audio, and cover are required' });
+    }
+    const song = await Song.create({
+      title, artist, genre, album, duration, audioQuality, lyrics,
+      audioSrc: `${API_ORIGIN}/uploads/${audio.filename}`,
+      cover: `${API_ORIGIN}/uploads/${cover.filename}`
+    });
+    res.status(201).json(song);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/catalog/facets', async (req, res) => {
+  try {
+    const [genres, artists, albums] = await Promise.all([
+      Song.distinct('genre'),
+      Song.distinct('artist'),
+      Song.distinct('album', { album: { $ne: '' } })
+    ]);
+    res.json({ genres, artists, albums });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -101,6 +245,39 @@ app.post('/api/users/:userId/like', async (req, res) => {
   }
 });
 
+app.post('/api/users/:userId/recently-played', requireAuth, sameUser, async (req, res) => {
+  try {
+    const { songId } = req.body;
+    if (songId === undefined || songId === null) return res.status(400).json({ error: 'songId is required' });
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    user.recentlyPlayed = [
+      { songId, playedAt: new Date() },
+      ...user.recentlyPlayed.filter(item => String(item.songId) !== String(songId))
+    ].slice(0, 50);
+    await user.save();
+    res.json(user.recentlyPlayed);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/recommendations/:userId', requireAuth, sameUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const likedIds = new Set((user.likedSongs || []).map(String));
+    const recentIds = new Set((user.recentlyPlayed || []).map(item => String(item.songId)));
+    const songs = await Song.find().limit(100).lean();
+    const results = songs
+      .map(song => ({ ...song, recommendationScore: (likedIds.has(String(song._id)) ? 3 : 0) + (recentIds.has(String(song._id)) ? 2 : 0) }))
+      .sort((a, b) => b.recommendationScore - a.recommendationScore);
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== ROBUST MULTI-SOURCE SEARCH PROXY ====================
 app.get('/api/proxy/search', async (req, res) => {
   try {
@@ -122,8 +299,9 @@ app.get('/api/proxy/search', async (req, res) => {
         id: song._id.toString(),
         title: song.title,
         artist: song.artist,
-        cover: song.cover || '',
-        file: song.file || song.audioUrl || '',
+        cover: toMediaUrl(song.cover, 'coverpages'),
+        file: toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs'),
+        audioSrc: toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs'),
         genre: song.genre || 'Local',
         isFullSong: true
       }));
@@ -142,7 +320,8 @@ app.get('/api/proxy/search', async (req, res) => {
           title: track.name,
           artist: track.artist_name,
           cover: track.image || '',
-          file: track.audio || '',
+          file: toPreviewProxyUrl(track.audio),
+          audioSrc: toPreviewProxyUrl(track.audio),
           genre: 'Jamendo',
           isFullSong: true
         }));
@@ -162,7 +341,8 @@ app.get('/api/proxy/search', async (req, res) => {
           title: track.trackName,
           artist: track.artistName,
           cover: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg') : '',
-          file: track.previewUrl || '',
+          file: toPreviewProxyUrl(track.previewUrl),
+          audioSrc: toPreviewProxyUrl(track.previewUrl),
           genre: 'iTunes',
           isFullSong: false
         }));

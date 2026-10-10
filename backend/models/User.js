@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    role: {
+        type: String,
+        enum: ['user', 'admin'],
+        default: 'user'
+    },
     likedSongs: [{
         type: mongoose.Schema.Types.Mixed // Allows both numeric/string mock IDs and ObjectIds
     }],
@@ -25,6 +30,10 @@ const userSchema = new mongoose.Schema({
         name: { type: String, required: true },
         songs: [{ type: mongoose.Schema.Types.Mixed }],
         createdAt: { type: Date, default: Date.now }
+    }],
+    recentlyPlayed: [{
+        songId: { type: mongoose.Schema.Types.Mixed, required: true },
+        playedAt: { type: Date, default: Date.now }
     }]
 }, {
     timestamps: true

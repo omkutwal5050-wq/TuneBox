@@ -4,7 +4,15 @@ import { PlayerContext } from '../context/Playercontext';
 import { mockSongs } from '../data/songsData';
 
 export default function Search() {
-  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds } = useContext(PlayerContext);
+  const {
+    currentTrack,
+    isPlaying,
+    playTrack,
+    toggleLike,
+    likedSongIds,
+    recentSearches,
+    rememberSearch
+  } = useContext(PlayerContext);
   const [localQuery, setLocalQuery] = useState('');
   const [apiResults, setApiResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +35,7 @@ export default function Search() {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:5000/api/proxy/search?query=${encodeURIComponent(localQuery)}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/proxy/search?query=${encodeURIComponent(localQuery)}`);
         const json = await res.json();
 
         console.log("Raw Proxy JSON Response:", json);
@@ -41,6 +49,7 @@ export default function Search() {
           artist: song.artist || 'Unknown Artist',
           cover: song.cover || '',
           file: song.file || '',
+          audioSrc: song.audioSrc || song.file || '',
           genre: song.genre || 'Deezer'
         }));
 
@@ -55,7 +64,23 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [localQuery]);
 
-  const combinedResults = [...localFiltered, ...apiResults];
+  const combinedResults = [...localFiltered, ...apiResults].reduce((uniqueSongs, song) => {
+    const key = `${song.title || ''}:${song.artist || ''}`.trim().toLowerCase();
+    const existingIndex = uniqueSongs.findIndex(existingSong => (
+      `${existingSong.title || ''}:${existingSong.artist || ''}`.trim().toLowerCase() === key
+    ));
+
+    if (existingIndex === -1) {
+      uniqueSongs.push(song);
+      return uniqueSongs;
+    }
+
+    const existingSong = uniqueSongs[existingIndex];
+    const existingScore = Number(Boolean(existingSong.cover)) + Number(Boolean(existingSong.audioSrc || existingSong.file));
+    const songScore = Number(Boolean(song.cover)) + Number(Boolean(song.audioSrc || song.file));
+    if (songScore > existingScore) uniqueSongs[existingIndex] = song;
+    return uniqueSongs;
+  }, []);
 
   return (
     <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">
@@ -70,7 +95,35 @@ export default function Search() {
           placeholder="Search millions of songs, artists, or genres..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-full pl-12 pr-6 py-3.5 text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 transition shadow-inner"
           autoFocus
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') rememberSearch(localQuery);
+          }}
         />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {recentSearches.map(search => (
+          <button
+            key={search}
+            onClick={() => {
+              setLocalQuery(search);
+              rememberSearch(search);
+            }}
+            className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+          >
+            {search}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {['All', 'Synthwave', 'Ambient', 'Pop', 'Bollywood'].map(genre => (
+          <button
+            key={genre}
+            onClick={() => setLocalQuery(genre === 'All' ? '' : genre)}
+            className="rounded-full border border-neutral-800 px-3 py-1 text-xs text-neutral-400 hover:border-emerald-500 hover:text-emerald-400"
+          >
+            {genre}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-4">
@@ -90,7 +143,7 @@ export default function Search() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {combinedResults.map((song) => {
               const isCurrent = currentTrack?.id === song.id;
-              const isLiked = likedSongIds.includes(song.id);
+              const isLiked = likedSongIds.some(id => String(id) === String(song.id));
 
               return (
                 <div

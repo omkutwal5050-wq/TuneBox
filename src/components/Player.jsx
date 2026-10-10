@@ -25,10 +25,18 @@ export default function Player() {
     repeatMode,
     cycleRepeatMode,
     likedSongIds,
-    toggleLike
+    toggleLike,
+    queue,
+    removeFromQueue,
+    clearQueue
+    ,crossfadeSeconds,
+    setCrossfadeSeconds,
+    audioQuality,
+    setAudioQuality
   } = useContext(PlayerContext);
 
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
 
   if (!currentTrack) return null;
 
@@ -138,7 +146,11 @@ export default function Player() {
             <Mic2 size={18} />
           </button>
 
-          <button className="text-neutral-400 hover:text-white transition p-2 cursor-pointer bg-neutral-800/50 hover:bg-neutral-800 rounded-full">
+          <button
+            onClick={() => setIsQueueOpen(previous => !previous)}
+            className="text-neutral-400 hover:text-white transition p-2 cursor-pointer bg-neutral-800/50 hover:bg-neutral-800 rounded-full"
+            title="Open queue"
+          >
             <ListMusic size={18} />
           </button>
 
@@ -156,8 +168,54 @@ export default function Player() {
               className="w-20 h-1 bg-neutral-700 rounded-full appearance-none cursor-pointer accent-emerald-500"
             />
           </div>
+          <select
+            value={audioQuality}
+            onChange={(event) => setAudioQuality(event.target.value)}
+            className="w-20 rounded bg-neutral-800 px-1 py-1 text-xs text-neutral-300"
+            title="Audio quality preference"
+          >
+            <option value="low">Low</option>
+            <option value="standard">Std</option>
+            <option value="high">High</option>
+            <option value="lossless">Lossless</option>
+          </select>
+          <select
+            value={crossfadeSeconds}
+            onChange={(event) => setCrossfadeSeconds(Number(event.target.value))}
+            className="w-20 rounded bg-neutral-800 px-1 py-1 text-xs text-neutral-300"
+            title="Crossfade preference"
+          >
+            <option value="0">No fade</option>
+            <option value="3">3s fade</option>
+            <option value="6">6s fade</option>
+            <option value="10">10s fade</option>
+          </select>
         </div>
       </div>
+
+      {isQueueOpen && (
+        <div className="absolute bottom-24 right-4 z-50 w-80 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-2xl">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-semibold text-white">Queue</h3>
+            <button onClick={clearQueue} className="text-xs text-neutral-400 hover:text-white">Clear</button>
+          </div>
+          {queue.length === 0 ? (
+            <p className="text-sm text-neutral-500">Your queue is empty.</p>
+          ) : (
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {queue.map((track, index) => (
+                <div key={`${track.id}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate text-white">{track.title}</p>
+                    <p className="truncate text-xs text-neutral-500">{track.artist}</p>
+                  </div>
+                  <button onClick={() => removeFromQueue(index)} className="text-neutral-500 hover:text-rose-400">Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Lyrics Popup Modal */}
       <LyricsModal 

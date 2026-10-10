@@ -4,7 +4,7 @@ import { PlayerContext } from '../context/Playercontext';
 import { mockSongs } from '../data/songsData';
 
 export default function MainContent() {
-  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds, selectedGenre, setSelectedGenre } = useContext(PlayerContext);
+  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds, selectedGenre, setSelectedGenre, filteredSongs } = useContext(PlayerContext);
 
   const featuredTrack = mockSongs[0];
 
@@ -79,9 +79,9 @@ export default function MainContent() {
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-white tracking-wide">Trending Songs</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {mockSongs.map((song) => {
+          {filteredSongs.map((song) => {
             const isCurrent = currentTrack?.id === song.id;
-            const isLiked = likedSongIds.includes(song.id);
+            const isLiked = likedSongIds.some(id => String(id) === String(song.id));
 
             return (
               <div
@@ -113,7 +113,6 @@ export default function MainContent() {
                     onClick={() => toggleLike(song.id)}
                     className={`text-neutral-400 hover:text-rose-500 transition ${isLiked ? 'text-rose-500' : ''}`}
                   >
-                    <size size={18} />
                     <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
                   </button>
                 </div>

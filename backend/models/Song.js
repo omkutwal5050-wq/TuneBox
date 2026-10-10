@@ -23,7 +23,11 @@ const songSchema = new mongoose.Schema({
   audioSrc: {
     type: String,
     required: true
-  }
+  },
+  album: { type: String, trim: true, default: '' },
+  duration: { type: Number, min: 0, default: 0 },
+  audioQuality: { type: String, enum: ['low', 'standard', 'high', 'lossless'], default: 'standard' },
+  lyrics: { type: String, default: '' }
 }, {
   timestamps: true
 });
