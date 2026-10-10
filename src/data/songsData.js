@@ -2,10 +2,10 @@
 export const mockSongs = [
   {
     id: 1,
-    title: 'Midnight Coding',
-    artist: 'Lo-Fi Producer',
-    genre: 'Lo-Fi',
-    cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&q=80',
+    title: 'Ekh Lad Jave',
+    artist: 'Badshah',
+    genre: 'punjabi hip hop',
+    cover: 'public/coverpages/ekhladjave.jpeg',
     audioUrl: '/songs/song1.mp3',
     lyrics: "In the quiet of the night...\nLines of code beginning to align...\nSyntax clean, thoughts clear...\nBuilding something bright right here."
   },
