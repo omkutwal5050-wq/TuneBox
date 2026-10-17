@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema({
     }],
     recentlyPlayed: [{
         songId: { type: mongoose.Schema.Types.Mixed, required: true },
+        track: { type: mongoose.Schema.Types.Mixed },
         playedAt: { type: Date, default: Date.now }
     }]
 }, {

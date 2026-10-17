@@ -19,7 +19,8 @@ frontend.
 
 - JWT authentication is returned by `/api/auth/register` and `/api/auth/login`.
 - Existing profile, likes, and embedded playlist fields remain compatible.
-- `POST /api/users/:userId/recently-played` stores the last 50 tracks.
+- `POST /api/users/:userId/recently-played` stores the complete play history,
+  including a track snapshot so old external previews remain available.
 - `GET /api/recommendations/:userId` returns personalized local tracks.
 - `GET /api/catalog/facets` returns genres, artists, and albums.
 - `POST /api/admin/songs` accepts `title`, `artist`, `genre`, optional metadata,

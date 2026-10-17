@@ -16,6 +16,7 @@ export default function Search() {
   const [localQuery, setLocalQuery] = useState('');
   const [apiResults, setApiResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const localFiltered = mockSongs.filter((song) => {
     if (!localQuery.trim()) return false;
@@ -82,6 +83,10 @@ export default function Search() {
     return uniqueSongs;
   }, []);
 
+  const suggestions = [...combinedResults]
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)))
+    .slice(0, 8);
+
   return (
     <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">
       <div className="relative max-w-xl">
@@ -92,13 +97,60 @@ export default function Search() {
           type="text"
           value={localQuery}
           onChange={(e) => setLocalQuery(e.target.value)}
+          onFocus={() => setIsSearchFocused(true)}
           placeholder="Search millions of songs, artists, or genres..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-full pl-12 pr-6 py-3.5 text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 transition shadow-inner"
           autoFocus
           onKeyDown={(event) => {
-            if (event.key === 'Enter') rememberSearch(localQuery);
+            if (event.key === 'Enter') {
+              rememberSearch(localQuery);
+              setIsSearchFocused(false);
+              event.currentTarget.blur();
+            }
           }}
         />
+        {isSearchFocused && (recentSearches.length > 0 || suggestions.length > 0) && (
+          <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-2xl">
+            {!localQuery.trim() && recentSearches.length > 0 && (
+              <div className="border-b border-neutral-800 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Previous searches</p>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map(search => (
+                    <button
+                      key={search}
+                      onMouseDown={() => {
+                        setLocalQuery(search);
+                        rememberSearch(search);
+                      }}
+                      className="rounded-full bg-neutral-800 px-3 py-1.5 text-left text-sm text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                    >
+                      {search}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {suggestions.length > 0 && (
+              <div className="p-2">
+                <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Suggestions</p>
+                {suggestions.map(song => (
+                  <button
+                    key={`${song.id}-${song.title}`}
+                    onMouseDown={() => {
+                      setLocalQuery(song.title);
+                      rememberSearch(song.title);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-neutral-800"
+                  >
+                    <SearchIcon size={15} className="text-neutral-500" />
+                    <span className="truncate text-sm text-neutral-200">{song.title}</span>
+                    <span className="ml-auto truncate text-xs text-neutral-500">{song.artist}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
         {recentSearches.map(search => (

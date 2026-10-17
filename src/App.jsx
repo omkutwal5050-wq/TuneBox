@@ -35,6 +35,7 @@ export default function App() {
     setCurrentUser(null);
     setCurrentView('home');
     setIsAuthOpen(true);
+    window.dispatchEvent(new Event('tunebox:user-changed'));
   };
 
   if (isLoading) {
@@ -93,6 +94,7 @@ export default function App() {
             onLoginSuccess={(user) => {
               setCurrentUser(user);
               setIsAuthOpen(false);
+              window.dispatchEvent(new Event('tunebox:user-changed'));
             }}
           />
         </div>

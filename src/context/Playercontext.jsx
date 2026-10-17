@@ -146,6 +146,47 @@ export const PlayerProvider = ({ children }) => {
     localStorage.setItem('player_recentlyPlayed', JSON.stringify(recentlyPlayed));
   }, [recentlyPlayed]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadRecentlyPlayed = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        if (!storedUser || !token) {
+          setRecentlyPlayed([]);
+          return;
+        }
+        const user = JSON.parse(storedUser);
+        const response = await fetch(`${API_BASE_URL}/auth/${user._id}`, {
+          headers: authHeaders()
+        });
+        if (!response.ok) throw new Error(`Recently played request failed (${response.status})`);
+        const profile = await response.json();
+        if (cancelled) return;
+
+        const history = (profile.recentlyPlayed || [])
+          .map(entry => entry.track || mockSongs.find(song => String(song.id) === String(entry.songId)))
+          .filter(Boolean)
+          .map(normalizeTrack);
+        setRecentlyPlayed(previous => {
+          const merged = [...history, ...previous];
+          return merged.filter((track, index) => (
+            merged.findIndex(item => String(item.id) === String(track.id)) === index
+          ));
+        });
+      } catch (error) {
+        console.error('Could not load recently played tracks:', error);
+      }
+    };
+
+    loadRecentlyPlayed();
+    window.addEventListener('tunebox:user-changed', loadRecentlyPlayed);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('tunebox:user-changed', loadRecentlyPlayed);
+    };
+  }, []);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
@@ -157,7 +198,7 @@ export const PlayerProvider = ({ children }) => {
     setRecentlyPlayed(previous => [
       normalizedTrack,
       ...previous.filter(item => String(item.id) !== String(normalizedTrack.id))
-    ].slice(0, 50));
+    ]);
 
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
@@ -168,7 +209,7 @@ export const PlayerProvider = ({ children }) => {
       fetch(`${API_BASE_URL}/users/${user._id}/recently-played`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ songId: normalizedTrack.id })
+        body: JSON.stringify({ songId: normalizedTrack.id, track: normalizedTrack })
       }).then(response => {
         if (!response.ok) throw new Error(`Recently played request failed (${response.status})`);
         return response.json();

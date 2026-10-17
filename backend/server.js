@@ -264,7 +264,7 @@ app.get('/api/users/:userId', async (req, res) => {
 // Like / Unlike a song
 app.post('/api/users/:userId/like', async (req, res) => {
   try {
-    const { songId } = req.body;
+    const { songId, track } = req.body;
     const user = await User.findById(req.params.userId);
     
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -290,9 +290,9 @@ app.post('/api/users/:userId/recently-played', requireAuth, sameUser, async (req
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     user.recentlyPlayed = [
-      { songId, playedAt: new Date() },
+      { songId, track, playedAt: new Date() },
       ...user.recentlyPlayed.filter(item => String(item.songId) !== String(songId))
-    ].slice(0, 50);
+    ];
     await user.save();
     res.json(user.recentlyPlayed);
   } catch (err) {
