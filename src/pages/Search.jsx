@@ -157,7 +157,7 @@ export default function Search() {
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
                     <button
-                      onClick={() => playTrack(song)}
+                      onClick={() => playTrack(song, combinedResults)}
                       className={`absolute bottom-3 right-3 w-12 h-12 bg-emerald-500 hover:bg-emerald-400 rounded-full flex items-center justify-center text-black shadow-xl transition-all duration-200 transform ${
                         isCurrent && isPlaying ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100'
                       }`}

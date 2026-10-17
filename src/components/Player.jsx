@@ -85,30 +85,35 @@ export default function Player() {
           <div className="flex items-center gap-6 mb-2">
             <button 
               onClick={toggleShuffle}
+              aria-label="Toggle shuffle"
               className={`transition cursor-pointer ${isShuffle ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}`}
             >
               <Shuffle size={18} />
             </button>
             <button 
               onClick={prevTrack}
+              aria-label="Previous track"
               className="text-neutral-400 hover:text-white transition cursor-pointer"
             >
               <SkipBack size={22} fill="currentColor" />
             </button>
             <button 
               onClick={togglePlay}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
               className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-black hover:scale-105 transition transform cursor-pointer"
             >
               {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
             </button>
             <button 
               onClick={nextTrack}
+              aria-label="Next track"
               className="text-neutral-400 hover:text-white transition cursor-pointer"
             >
               <SkipForward size={22} fill="currentColor" />
             </button>
             <button 
               onClick={cycleRepeatMode}
+              aria-label="Change repeat mode"
               className={`transition relative cursor-pointer ${repeatMode !== 'off' ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}`}
             >
               <Repeat size={18} />

@@ -70,6 +70,7 @@ export const PlayerProvider = ({ children }) => {
     const saved = localStorage.getItem('player_queue');
     return saved ? JSON.parse(saved) : [];
   });
+  const [playbackList, setPlaybackList] = useState(mockSongs);
 
   const [playlists, setPlaylists] = useState(() => {
     const saved = localStorage.getItem('player_playlists');
@@ -203,7 +204,17 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const safePlay = (track = currentTrack) => {
-    const playPromise = audioRef.current.play();
+    const audio = audioRef.current;
+    if (!audio?.src) return;
+
+    if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      const playWhenReady = () => safePlay(track);
+      audio.addEventListener('canplay', playWhenReady, { once: true });
+      audio.load();
+      return;
+    }
+
+    const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
@@ -225,16 +236,23 @@ export const PlayerProvider = ({ children }) => {
     const audioSrc = currentTrack?.audioSrc || currentTrack?.file || currentTrack?.audioUrl;
     if (audioSrc) {
       const wasPlaying = isPlaying;
+      const playWhenReady = () => safePlay(currentTrack);
       setPlaybackError('');
       const resolvedSrc = new URL(audioSrc, window.location.href).href;
-      if (audio.src !== resolvedSrc) {
-        audio.src = audioSrc;
-        audio.load();
+      const sourceChanged = audio.src !== resolvedSrc;
+      if (sourceChanged) {
+        audio.pause();
+        audio.src = resolvedSrc;
       }
       if (wasPlaying) {
-        audio.addEventListener('canplay', safePlay, { once: true });
+        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          playWhenReady();
+        } else {
+          audio.addEventListener('canplay', playWhenReady, { once: true });
+        }
       }
-      return () => audio.removeEventListener('canplay', safePlay);
+      if (sourceChanged) audio.load();
+      return () => audio.removeEventListener('canplay', playWhenReady);
     }
   }, [currentTrack]);
 
@@ -281,20 +299,23 @@ export const PlayerProvider = ({ children }) => {
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleAudioError);
     };
-  }, [repeatMode, isShuffle, queue, isMuted, volume]);
+  }, [repeatMode, isShuffle, queue, playbackList, isMuted, volume]);
 
-  const playTrack = (track) => {
+  const playTrack = (track, sourceTracks = null) => {
+    if (sourceTracks?.length) {
+      setPlaybackList(sourceTracks.map(normalizeTrack));
+    }
+
     if (currentTrack?.id === track.id) {
       togglePlay();
     } else {
       const nextTrack = normalizeTrack(track);
       const audioSrc = nextTrack.audioSrc;
       setCurrentTrack(nextTrack);
-      setIsPlaying(true);
       setPlaybackError('');
-      audioRef.current.src = audioSrc;
-      audioRef.current.load();
-      safePlay();
+      audioRef.current.pause();
+      audioRef.current.src = new URL(audioSrc, window.location.href).href;
+      setIsPlaying(true);
     }
   };
 
@@ -317,23 +338,23 @@ export const PlayerProvider = ({ children }) => {
     }
 
     if (isShuffle) {
-      const randomIndex = Math.floor(Math.random() * mockSongs.length);
-      playTrack(mockSongs[randomIndex]);
+      const randomIndex = Math.floor(Math.random() * playbackList.length);
+      playTrack(playbackList[randomIndex]);
       return;
     }
 
-    const currentIndex = mockSongs.findIndex((s) => String(s.id) === String(currentTrack.id));
+    const currentIndex = playbackList.findIndex((s) => String(s.id) === String(currentTrack.id));
     if (currentIndex === -1) {
-      if (repeatMode === 'all') playTrack(mockSongs[0]);
+      if (repeatMode === 'all') playTrack(playbackList[0]);
       else setIsPlaying(false);
       return;
     }
-    if (repeatMode === 'off' && currentIndex === mockSongs.length - 1) {
+    if (repeatMode === 'off' && currentIndex === playbackList.length - 1) {
       setIsPlaying(false);
       return;
     }
-    const nextIndex = (currentIndex + 1) % mockSongs.length;
-    playTrack(mockSongs[nextIndex]);
+    const nextIndex = (currentIndex + 1) % playbackList.length;
+    playTrack(playbackList[nextIndex]);
   };
 
   const prevTrack = () => {
@@ -342,9 +363,10 @@ export const PlayerProvider = ({ children }) => {
       return;
     }
 
-    const currentIndex = mockSongs.findIndex((s) => String(s.id) === String(currentTrack.id));
-    const prevIndex = (currentIndex - 1 + mockSongs.length) % mockSongs.length;
-    playTrack(mockSongs[prevIndex]);
+    const currentIndex = playbackList.findIndex((s) => String(s.id) === String(currentTrack.id));
+    if (currentIndex === -1) return;
+    const prevIndex = (currentIndex - 1 + playbackList.length) % playbackList.length;
+    playTrack(playbackList[prevIndex]);
   };
 
   const seek = (newTime) => {

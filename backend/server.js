@@ -4,6 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { Readable } = require('stream');
+const { spawn } = require('child_process');
+const ffmpegPath = require('ffmpeg-static');
 const multer = require('multer');
 require('dotenv').config();
 
@@ -39,7 +41,8 @@ const allowedPreviewHosts = new Set([
   'api.jamendo.com',
   'audio-ssl.itunes.apple.com',
   'audio.itunes.apple.com',
-  'itunes.apple.com'
+  'itunes.apple.com',
+  'p.scdn.co'
 ]);
 
 const toPreviewProxyUrl = (value) => {
@@ -136,12 +139,47 @@ app.get('/api/proxy/audio', async (req, res) => {
       return res.status(upstream.status).json({ error: 'Preview source is unavailable' });
     }
 
+    const isItunesPreview = parsed.hostname.toLowerCase().includes('itunes.apple.com');
+    if (isItunesPreview) {
+      if (!upstream.body) return res.status(502).json({ error: 'Preview source returned no audio' });
+
+      const ffmpeg = spawn(ffmpegPath, [
+        '-hide_banner', '-loglevel', 'error',
+        '-i', 'pipe:0',
+        '-vn',
+        '-f', 'mp3',
+        '-codec:a', 'libmp3lame',
+        '-b:a', '128k',
+        'pipe:1'
+      ], { windowsHide: true });
+
+      res.status(200);
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      ffmpeg.stdout.pipe(res);
+      ffmpeg.stderr.on('data', data => console.error('Preview transcoder error:', data.toString().trim()));
+      ffmpeg.on('error', error => {
+        console.error('Preview transcoder failed:', error.message);
+        if (!res.headersSent) res.status(502).json({ error: 'Unable to transcode audio preview' });
+        else res.destroy(error);
+      });
+      res.on('close', () => {
+        if (!ffmpeg.killed) ffmpeg.kill();
+      });
+      Readable.fromWeb(upstream.body).pipe(ffmpeg.stdin);
+      return;
+    }
+
     res.status(upstream.status);
     const passthroughHeaders = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'];
     passthroughHeaders.forEach(header => {
       const value = upstream.headers.get(header);
-      if (value) res.setHeader(header, value);
+      if (value && header !== 'content-type') res.setHeader(header, value);
     });
+    // iTunes labels AAC previews as audio/x-m4p, which Chromium rejects even
+    // though the payload is an ordinary MP4 audio stream.
+    res.setHeader('Content-Type', 'audio/mp4');
     res.setHeader('Access-Control-Allow-Origin', '*');
     if (!upstream.body) return res.end();
     Readable.fromWeb(upstream.body).pipe(res);
@@ -300,8 +338,8 @@ app.get('/api/proxy/search', async (req, res) => {
         title: song.title,
         artist: song.artist,
         cover: toMediaUrl(song.cover, 'coverpages'),
-        file: toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs'),
-        audioSrc: toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs'),
+        file: toPreviewProxyUrl(toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs')),
+        audioSrc: toPreviewProxyUrl(toMediaUrl(song.audioSrc || song.file || song.audioUrl, 'songs')),
         genre: song.genre || 'Local',
         isFullSong: true
       }));
