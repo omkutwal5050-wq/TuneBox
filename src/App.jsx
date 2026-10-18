@@ -2,12 +2,23 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/sidebar';
 import Maincontent from './components/Maincontent';
+import UploadSong from './components/UploadSong';
 import Profile from './pages/Profile';
 import Player from './components/Player';
 import AuthModal from './components/AuthModal';
 import Search from './pages/Search'; // 1. Import your Search component
 import Library from './pages/Library';
 import Discover from './pages/Discover';
+
+const getTokenRole = (token) => {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+    return JSON.parse(atob(paddedPayload)).role || '';
+  } catch {
+    return '';
+  }
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -20,9 +31,17 @@ export default function App() {
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    
-    if (savedUser && token) {
-      setCurrentUser(JSON.parse(savedUser));
+
+    let storedUser = null;
+    try {
+      storedUser = savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      localStorage.removeItem('user');
+    }
+
+    if (storedUser && token) {
+      const tokenRole = getTokenRole(token);
+      setCurrentUser({ ...storedUser, role: tokenRole || storedUser.role || '' });
     } else {
       setIsAuthOpen(true);
     }
@@ -46,6 +65,8 @@ export default function App() {
     );
   }
 
+  const isAdmin = String(currentUser?.role || '').toLowerCase() === 'admin';
+
   // Render the appropriate main content based on currentView
   const renderMainContent = () => {
     switch (currentView) {
@@ -63,6 +84,8 @@ export default function App() {
         return <Discover view="radio" />;
       case 'mood':
         return <Discover view="mood" />;
+      case 'upload':
+        return isAdmin ? <UploadSong /> : <Maincontent />;
       case 'home':
       default:
         return <Maincontent />;
@@ -92,7 +115,11 @@ export default function App() {
               if (currentUser) setIsAuthOpen(false);
             }}
             onLoginSuccess={(user) => {
-              setCurrentUser(user);
+              const token = localStorage.getItem('token');
+              const tokenRole = token ? getTokenRole(token) : '';
+              const resolvedUser = { ...user, role: tokenRole || user.role || '' };
+              localStorage.setItem('user', JSON.stringify(resolvedUser));
+              setCurrentUser(resolvedUser);
               setIsAuthOpen(false);
               window.dispatchEvent(new Event('tunebox:user-changed'));
             }}
@@ -117,6 +144,7 @@ export default function App() {
               setCurrentView={setCurrentView}
               collapsed={sidebarCollapsed}
               onToggle={() => setSidebarCollapsed(previous => !previous)}
+              isAdmin={isAdmin}
             />
             
             <main className="flex-1 overflow-y-auto">

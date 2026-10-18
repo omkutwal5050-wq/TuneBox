@@ -2,12 +2,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 const { Readable } = require('stream');
 const { spawn } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
-const multer = require('multer');
 require('dotenv').config();
+const { upload } = require('./utils/cloudinary');
 
 const Song = require('./models/Song');
 const User = require('./models/User');
@@ -79,25 +78,6 @@ app.use((req, res, next) => {
 app.use('/songs', express.static(path.resolve(__dirname, '../public/songs')));
 app.use('/coverpages', express.static(path.resolve(__dirname, '../public/coverpages')));
 app.use('/uploads', express.static(path.resolve(__dirname, '../public/uploads')));
-
-const uploadsDirectory = path.resolve(__dirname, '../public/uploads');
-fs.mkdirSync(uploadsDirectory, { recursive: true });
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDirectory,
-    filename: (req, file, callback) => {
-      const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      callback(null, safeName);
-    }
-  }),
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (req, file, callback) => {
-    const allowed = file.fieldname === 'audio'
-      ? /^audio\//.test(file.mimetype)
-      : /^image\//.test(file.mimetype);
-    callback(allowed ? null : new Error('Unsupported media type'), allowed);
-  }
-});
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -213,8 +193,8 @@ app.post('/api/admin/songs', requireAuth, requireAdmin, upload.fields([
     }
     const song = await Song.create({
       title, artist, genre, album, duration, audioQuality, lyrics,
-      audioSrc: `${API_ORIGIN}/uploads/${audio.filename}`,
-      cover: `${API_ORIGIN}/uploads/${cover.filename}`
+      audioSrc: audio.path,
+      cover: cover.path
     });
     res.status(201).json(song);
   } catch (err) {

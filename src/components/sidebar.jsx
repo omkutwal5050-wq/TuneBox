@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Search, Library, Radio, Clock3, Sparkles, Menu, Smile } from 'lucide-react';
+import { Home, Search, Library, Radio, Clock3, Sparkles, Menu, Smile, Upload } from 'lucide-react';
 
-export default function Sidebar({ currentView, setCurrentView, collapsed, onToggle }) {
+export default function Sidebar({ currentView, setCurrentView, collapsed, onToggle, isAdmin }) {
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'search', label: 'Search', icon: Search },
@@ -11,6 +11,9 @@ export default function Sidebar({ currentView, setCurrentView, collapsed, onTogg
     { id: 'radio', label: 'Radio', icon: Radio },
     { id: 'mood', label: 'Mood', icon: Smile },
   ];
+  if (isAdmin) {
+    navItems.push({ id: 'upload', label: 'Upload Song', icon: Upload });
+  }
 
   return (
     <aside className={`${collapsed ? 'w-20' : 'w-64'} bg-[#111827] border-r border-gray-800/60 p-4 md:p-6 flex flex-col justify-between shrink-0 select-none z-10 transition-all duration-200`}>
