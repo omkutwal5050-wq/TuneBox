@@ -24,6 +24,16 @@ const frontendOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,
   .split(',')
   .map(origin => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || frontendOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS origin is not allowed'));
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
+};
 if (!process.env.MONGO_URI) {
   console.error('MONGO_URI is missing. Create backend/.env before starting the server.');
 }
@@ -80,12 +90,8 @@ const toPreviewProxyUrl = (value) => {
 };
 
 // Middleware
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || frontendOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('CORS origin is not allowed'));
-  }
-}));
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/auth') && ['POST'].includes(req.method)) {
