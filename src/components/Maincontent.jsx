@@ -38,7 +38,7 @@ export default function MainContent() {
               )}
             </button>
             <button
-              onClick={() => toggleLike(featuredTrack.id)}
+              onClick={() => toggleLike(featuredTrack.id, featuredTrack)}
               className={`p-3 rounded-full border transition ${
                 likedSongIds.includes(featuredTrack.id)
                   ? 'bg-rose-500/20 border-rose-500/50 text-rose-500'
@@ -110,7 +110,7 @@ export default function MainContent() {
                     <p className="text-xs text-neutral-400 truncate max-w-[180px]">{song.artist}</p>
                   </div>
                   <button
-                    onClick={() => toggleLike(song.id)}
+                    onClick={() => toggleLike(song.id, song)}
                     className={`text-neutral-400 hover:text-rose-500 transition ${isLiked ? 'text-rose-500' : ''}`}
                   >
                     <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />

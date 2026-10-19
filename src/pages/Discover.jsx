@@ -40,7 +40,7 @@ function TrackCard({ song, onPlay, currentTrack, isPlaying, likedSongIds, toggle
           <h3 className="truncate font-semibold text-white">{song.title}</h3>
           <p className="truncate text-xs text-neutral-400">{song.artist}</p>
         </div>
-        <button onClick={() => toggleLike(song.id || song._id)} className={isLiked ? 'text-rose-500' : 'text-neutral-500 hover:text-rose-400'}>
+        <button onClick={() => toggleLike(song.id || song._id, song)} className={isLiked ? 'text-rose-500' : 'text-neutral-500 hover:text-rose-400'}>
           <Heart size={17} fill={isLiked ? 'currentColor' : 'none'} />
         </button>
       </div>

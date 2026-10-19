@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
+process.env.JWT_SECRET = 'test-secret-that-is-longer-than-32-characters';
 const { getSecret } = require('../middleware/auth');
 const { validateCredentials } = require('../middleware/validate');
 

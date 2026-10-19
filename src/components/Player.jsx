@@ -72,7 +72,7 @@ export default function Player() {
             <p className="text-neutral-400 text-xs truncate">{currentTrack.artist}</p>
           </div>
           <button 
-            onClick={() => toggleLike(currentTrack.id)}
+            onClick={() => toggleLike(currentTrack.id, currentTrack)}
             className={`transition cursor-pointer ml-2 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-white'}`}
             title={isLiked ? "Remove from Liked Songs" : "Save to Liked Songs"}
           >

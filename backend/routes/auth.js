@@ -13,6 +13,16 @@ const publicUser = (user) => {
 };
 
 const issueToken = (user) => jwt.sign({ userId: user._id.toString(), email: user.email, role: user.role }, getSecret(), { expiresIn: '7d' });
+const toLikedSongSnapshot = (track, songId) => {
+  if (!track || typeof track !== 'object') return songId;
+  const snapshot = {};
+  ['id', '_id', 'title', 'artist', 'album', 'genre', 'cover', 'audioSrc', 'file', 'audioUrl', 'lyrics', 'duration', 'isFullSong'].forEach((key) => {
+    if (track[key] !== undefined && track[key] !== null) snapshot[key] = track[key];
+  });
+  snapshot.id = snapshot.id || snapshot._id || songId;
+  delete snapshot._id;
+  return snapshot;
+};
 
 // Register a new user
 router.post('/register', validateCredentials, async (req, res) => {
@@ -167,18 +177,21 @@ router.delete('/:userId/playlists/:playlistId', requireAuth, sameUser, async (re
 // Toggle Liked Song Route
 router.post('/:userId/like', requireAuth, sameUser, async (req, res) => {
   try {
-    const { songId } = req.body;
+    const { songId, track } = req.body;
+    if (songId === undefined || songId === null || songId === '') {
+      return res.status(400).json({ error: 'songId is required' });
+    }
     const user = await User.findById(req.params.userId);
     
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const songIdStr = String(songId);
-    const songIndex = user.likedSongs.findIndex(id => String(id) === songIdStr);
+    const songIndex = user.likedSongs.findIndex(id => String(id?.id || id?._id || id) === songIdStr);
 
     if (songIndex > -1) {
       user.likedSongs.splice(songIndex, 1); // Unlike / remove
     } else {
-      user.likedSongs.push(songId); // Like / add
+      user.likedSongs.push(toLikedSongSnapshot(track, songId));
     }
 
     await user.save();

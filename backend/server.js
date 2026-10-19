@@ -5,6 +5,7 @@ const path = require('path');
 const { Readable } = require('stream');
 const { spawn } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 const { upload } = require('./utils/cloudinary');
 
@@ -19,12 +20,34 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const API_ORIGIN = process.env.PUBLIC_API_ORIGIN || `http://localhost:${PORT}`;
+const frontendOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
+  .split(',')
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
 if (!process.env.MONGO_URI) {
   console.error('MONGO_URI is missing. Create backend/.env before starting the server.');
 }
-if (!process.env.JWT_SECRET) {
-  console.warn('JWT_SECRET is missing. A development fallback will be used; configure it before production.');
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET is missing or too weak. Configure a random secret with at least 32 characters.');
 }
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_ORIGINS) {
+  throw new Error('FRONTEND_ORIGINS is required in production.');
+}
+const publicUser = (user) => {
+  const result = user.toObject ? user.toObject() : { ...user };
+  delete result.password;
+  return result;
+};
+const toLikedSongSnapshot = (track, songId) => {
+  if (!track || typeof track !== 'object') return songId;
+  const snapshot = {};
+  ['id', '_id', 'title', 'artist', 'album', 'genre', 'cover', 'audioSrc', 'file', 'audioUrl', 'lyrics', 'duration', 'isFullSong'].forEach((key) => {
+    if (track[key] !== undefined && track[key] !== null) snapshot[key] = track[key];
+  });
+  snapshot.id = snapshot.id || snapshot._id || songId;
+  delete snapshot._id;
+  return snapshot;
+};
 const toMediaUrl = (value, directory) => {
   if (!value) return '';
   if (/^https?:\/\//i.test(value)) return value;
@@ -57,7 +80,12 @@ const toPreviewProxyUrl = (value) => {
 };
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || frontendOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS origin is not allowed'));
+  }
+}));
 app.use(express.json());
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/auth') && ['POST'].includes(req.method)) {
@@ -218,42 +246,50 @@ app.get('/api/catalog/facets', async (req, res) => {
 // ==================== USER ROUTES ====================
 
 // Create a new user
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const newUser = new User(req.body);
+    const { username, email, password, role = 'user' } = req.body;
+    if (!username || !email || !password || !['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'username, email, password, and a valid role are required' });
+    }
+    const passwordHash = await bcrypt.hash(password, 12);
+    const newUser = new User({ username, email, password: passwordHash, role });
     const savedUser = await newUser.save();
-    res.status(201).json(savedUser);
+    res.status(201).json(publicUser(savedUser));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
 // Get user profile (including liked songs and playlists)
-app.get('/api/users/:userId', async (req, res) => {
+app.get('/api/users/:userId', requireAuth, sameUser, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId)
       .populate('likedSongs')
       .populate('playlists.songs');
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    res.json(publicUser(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Like / Unlike a song
-app.post('/api/users/:userId/like', async (req, res) => {
+app.post('/api/users/:userId/like', requireAuth, sameUser, async (req, res) => {
   try {
     const { songId, track } = req.body;
+    if (songId === undefined || songId === null || songId === '') {
+      return res.status(400).json({ error: 'songId is required' });
+    }
     const user = await User.findById(req.params.userId);
     
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const index = user.likedSongs.indexOf(songId);
+    const index = user.likedSongs.findIndex(id => String(id?.id || id?._id || id) === String(songId));
     if (index > -1) {
       user.likedSongs.splice(index, 1); // Unlike if already liked
     } else {
-      user.likedSongs.push(songId); // Like if not liked
+      user.likedSongs.push(toLikedSongSnapshot(track, songId)); // Like if not liked
     }
 
     await user.save();

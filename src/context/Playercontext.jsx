@@ -19,6 +19,7 @@ const normalizeTrack = (track) => {
     : rawCover;
   return {
     ...track,
+    id: track.id || track._id,
     audioSrc,
     file: audioSrc,
     audioUrl: audioSrc,
@@ -26,8 +27,17 @@ const normalizeTrack = (track) => {
   };
 };
 
+const getTrackId = (track) => (
+  typeof track === 'object' ? track?.id || track?._id : track
+);
+
 const getStoredLikedIds = (user) => (
-  user?.likedSongs?.map(song => typeof song === 'object' ? song.id || song._id : song) || []
+  user?.likedSongs?.map(getTrackId).filter(Boolean) || []
+);
+
+const getStoredLikedTracks = (user) => (
+  user?.likedSongs?.filter(song => song && typeof song === 'object' && getTrackId(song))
+    .map(normalizeTrack) || []
 );
 
 export const PlayerProvider = ({ children }) => {
@@ -64,6 +74,15 @@ export const PlayerProvider = ({ children }) => {
     const saved = localStorage.getItem('player_likedSongs');
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     return saved ? JSON.parse(saved) : getStoredLikedIds(user);
+  });
+  const [likedTracks, setLikedTracks] = useState(() => {
+    const saved = localStorage.getItem('player_likedTracks');
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    try {
+      return saved ? JSON.parse(saved).map(normalizeTrack) : getStoredLikedTracks(user);
+    } catch {
+      return getStoredLikedTracks(user);
+    }
   });
 
   const [queue, setQueue] = useState(() => {
@@ -121,6 +140,32 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('player_likedSongs', JSON.stringify(likedSongIds));
   }, [likedSongIds]);
+
+  useEffect(() => {
+    localStorage.setItem('player_likedTracks', JSON.stringify(likedTracks));
+  }, [likedTracks]);
+
+  useEffect(() => {
+    const loadLikedSongs = () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        const userTracks = getStoredLikedTracks(user);
+        const storedTracks = JSON.parse(localStorage.getItem('player_likedTracks') || '[]')
+          .filter(track => track && typeof track === 'object')
+          .map(normalizeTrack);
+        const tracks = [...userTracks, ...storedTracks].filter((track, index, items) => (
+          items.findIndex(item => String(getTrackId(item)) === String(getTrackId(track))) === index
+        ));
+        setLikedSongIds(getStoredLikedIds(user));
+        setLikedTracks(tracks);
+      } catch (error) {
+        console.error('Could not load liked songs:', error);
+      }
+    };
+
+    window.addEventListener('tunebox:user-changed', loadLikedSongs);
+    return () => window.removeEventListener('tunebox:user-changed', loadLikedSongs);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('player_queue', JSON.stringify(queue));
@@ -449,7 +494,7 @@ export const PlayerProvider = ({ children }) => {
     });
   };
 
-  const toggleLike = async (songId) => {
+  const toggleLike = async (songId, track = null) => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       showToast("Please login to like songs!");
@@ -458,18 +503,33 @@ export const PlayerProvider = ({ children }) => {
 
     try {
       const userObj = JSON.parse(storedUser);
+      const trackSnapshot = track ? normalizeTrack(track) : (
+        likedTracks.find(item => String(getTrackId(item)) === String(songId))
+        || mockSongs.find(item => String(item.id) === String(songId))
+      );
       const response = await fetch(`${API_BASE_URL}/auth/${userObj._id}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ songId })
+        body: JSON.stringify({ songId, track: trackSnapshot })
       });
 
       if (response.ok) {
         const updatedUser = await response.json();
         localStorage.setItem('user', JSON.stringify(updatedUser));
 
+        const previousTracks = likedTracks;
         const newLikedIds = getStoredLikedIds(updatedUser);
+        const newLikedTracks = (updatedUser.likedSongs || [])
+          .filter(item => item && typeof item === 'object')
+          .map(normalizeTrack)
+          .concat(previousTracks.filter(previous => (
+            newLikedIds.some(id => String(id) === String(getTrackId(previous)))
+          )))
+          .filter((item, index, items) => (
+            items.findIndex(candidate => String(getTrackId(candidate)) === String(getTrackId(item))) === index
+          ));
         setLikedSongIds(newLikedIds);
+        setLikedTracks(newLikedTracks);
         
         const isNowLiked = newLikedIds.some(id => String(id) === String(songId));
         showToast(isNowLiked ? "Added to Liked (Saved to DB)" : "Removed from Liked");
@@ -648,7 +708,8 @@ export const PlayerProvider = ({ children }) => {
         isMuted, 
         changeVolume, 
         toggleMute, 
-        likedSongIds, 
+        likedSongIds,
+        likedTracks,
         toggleLike,
         isShuffle,
         toggleShuffle,

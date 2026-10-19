@@ -1,12 +1,11 @@
 import React, { useContext } from 'react';
 import { Play, Pause, Heart, Music } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
-import { mockSongs } from '../data/songsData';
 
 export default function Library() {
-  const { currentTrack, isPlaying, playTrack, toggleLike, likedSongIds } = useContext(PlayerContext);
+  const { currentTrack, isPlaying, playTrack, toggleLike, likedTracks } = useContext(PlayerContext);
 
-  const likedSongs = mockSongs.filter((song) => likedSongIds.some(id => String(id) === String(song.id)));
+  const likedSongs = likedTracks;
 
   return (
     <div className="flex-1 bg-[#0B0F17] overflow-y-auto p-6 md:p-8 space-y-6">

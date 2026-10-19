@@ -13,7 +13,15 @@ npm run dev
 
 The backend serves local media at `/songs`, `/coverpages`, and uploaded files at
 `/uploads`. Set `VITE_API_URL` to the deployed API base URL when building the
-frontend.
+frontend. Set `FRONTEND_ORIGINS` on the backend to a comma-separated list of
+allowed frontend origins, without trailing slashes:
+
+```env
+FRONTEND_ORIGINS=https://tunebox.example.com,https://www.tunebox.example.com
+```
+
+Local development defaults to `http://localhost:5173` and
+`http://127.0.0.1:5173`. In production, `FRONTEND_ORIGINS` is required.
 
 ## API additions
 

@@ -224,7 +224,7 @@ export default function Search() {
                       <p className="text-xs text-neutral-400 truncate">{song.artist}</p>
                     </div>
                     <button
-                      onClick={() => toggleLike(song.id)}
+                      onClick={() => toggleLike(song.id, song)}
                       className={`text-neutral-400 hover:text-rose-500 transition shrink-0 ${isLiked ? 'text-rose-500' : ''}`}
                     >
                       <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
