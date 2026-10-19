@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tunebox-media-v1';
+const CACHE_NAME = 'tunebox-media-v2';
 
 self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());
@@ -10,7 +10,12 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET' || !/\.(mp3|wav|ogg|m4a|jpeg|jpg|png|webp)(\?.*)?$/i.test(new URL(request.url).pathname)) {
+  const url = new URL(request.url);
+  if (
+    request.method !== 'GET'
+    || url.origin !== self.location.origin
+    || !/\.(mp3|wav|ogg|m4a|jpeg|jpg|png|webp)(\?.*)?$/i.test(url.pathname)
+  ) {
     return;
   }
   event.respondWith(

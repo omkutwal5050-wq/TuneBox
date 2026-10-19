@@ -319,6 +319,9 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
   }, [cameraStarted, instrument.color]);
 
   const setupAudio = useCallback(async () => {
+    if (navigator.userActivation && !navigator.userActivation.isActive) {
+      throw new Error('Click an Air Studio control before starting audio.');
+    }
     if (Tone.getContext().state === 'closed') {
       Tone.setContext(new Tone.Context());
     }
