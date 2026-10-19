@@ -1,7 +1,7 @@
 import { createContext, useState, useRef, useEffect } from 'react';
 import { mockSongs } from '../data/songsData';
 import { API_BASE_URL } from '../config/api';
-git 
+
 export const PlayerContext = createContext();
 const authHeaders = () => {
   const token = localStorage.getItem('token');
