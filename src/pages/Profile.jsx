@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 export default function Profile({ currentUser }) {
   const [userData, setUserData] = useState(null);
@@ -9,7 +10,7 @@ export default function Profile({ currentUser }) {
     if (!userId) return;
 
     // Fetch user details from your backend API
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/${userId}`, {
+    fetch(`${API_BASE_URL}/auth/${userId}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
       .then(res => res.json())

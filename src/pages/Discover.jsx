@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState, useContext } from 'react';
 import { Clock3, Heart, Pause, Play, Radio, Sparkles } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
 import { mockSongs } from '../data/songsData';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '../config/api';
 
 const moodRules = {
   Happy: ['pop', 'dance', 'disco', 'happy', 'synthwave'],

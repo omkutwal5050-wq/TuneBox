@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { Play, Pause, Heart, Search as SearchIcon, Loader2 } from 'lucide-react';
 import { PlayerContext } from '../context/Playercontext';
 import { mockSongs } from '../data/songsData';
+import { API_BASE_URL } from '../config/api';
 
 export default function Search() {
   const {
@@ -36,7 +37,7 @@ export default function Search() {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/proxy/search?query=${encodeURIComponent(localQuery)}`);
+        const res = await fetch(`${API_BASE_URL}/proxy/search?query=${encodeURIComponent(localQuery)}`);
         const json = await res.json();
 
         console.log("Raw Proxy JSON Response:", json);
