@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Library, Radio, Clock3, Sparkles, Menu, Smile, Upload } from 'lucide-react';
+import { Home, Search, Library, Radio, Clock3, Sparkles, Menu, Smile, Upload, WandSparkles } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, collapsed, onToggle, isAdmin }) {
   const navItems = [
@@ -10,6 +10,7 @@ export default function Sidebar({ currentView, setCurrentView, collapsed, onTogg
     { id: 'recommended', label: 'Recommended', icon: Sparkles },
     { id: 'radio', label: 'Radio', icon: Radio },
     { id: 'mood', label: 'Mood', icon: Smile },
+    { id: 'air-studio', label: 'Air Studio', icon: WandSparkles },
   ];
   if (isAdmin) {
     navItems.push({ id: 'upload', label: 'Upload Song', icon: Upload });

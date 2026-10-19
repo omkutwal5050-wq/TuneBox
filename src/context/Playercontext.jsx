@@ -1,4 +1,4 @@
-import React, { createContext, useState, useRef, useEffect } from 'react';
+import { createContext, useState, useRef, useEffect } from 'react';
 import { mockSongs } from '../data/songsData';
 
 export const PlayerContext = createContext();
@@ -360,6 +360,19 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
+  // Select a track for the shared player without starting playback.
+  const selectTrack = (track, sourceTracks = null) => {
+    if (!track) return;
+    if (sourceTracks?.length) {
+      setPlaybackList(sourceTracks.map(normalizeTrack));
+    }
+    const nextTrack = normalizeTrack(track);
+    audioRef.current.pause();
+    setCurrentTrack(nextTrack);
+    setIsPlaying(false);
+    setPlaybackError('');
+  };
+
   const togglePlay = () => {
     if (!currentTrack) return;
     if (isPlaying) {
@@ -625,6 +638,7 @@ export const PlayerProvider = ({ children }) => {
         isPlaying, 
         playbackError,
         playTrack, 
+        selectTrack,
         togglePlay, 
         nextTrack, 
         prevTrack, 

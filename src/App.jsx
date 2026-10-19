@@ -9,6 +9,7 @@ import AuthModal from './components/AuthModal';
 import Search from './pages/Search'; // 1. Import your Search component
 import Library from './pages/Library';
 import Discover from './pages/Discover';
+import AirStudio from './components/AirStudio';
 
 const getTokenRole = (token) => {
   try {
@@ -84,6 +85,8 @@ export default function App() {
         return <Discover view="radio" />;
       case 'mood':
         return <Discover view="mood" />;
+      case 'air-studio':
+        return <AirStudio />;
       case 'upload':
         return isAdmin ? <UploadSong /> : <Maincontent />;
       case 'home':
