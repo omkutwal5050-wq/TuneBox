@@ -20,13 +20,18 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const API_ORIGIN = process.env.PUBLIC_API_ORIGIN || `http://localhost:${PORT}`;
-const frontendOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
+const configuredFrontendOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map(origin => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || frontendOrigins.includes(origin)) return callback(null, true);
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    const allowsAnyOrigin = configuredFrontendOrigins.includes('*');
+    if (allowsAnyOrigin || configuredFrontendOrigins.includes(normalizedOrigin)) {
+      return callback(null, normalizedOrigin);
+    }
     return callback(new Error('CORS origin is not allowed'));
   },
   credentials: true,
