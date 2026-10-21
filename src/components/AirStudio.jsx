@@ -93,6 +93,29 @@ const SAMPLE_URLS = {
 
 const distance = (first, second) => Math.hypot(first.x - second.x, first.y - second.y);
 
+const HAND_CONNECTIONS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [0, 17], [17, 18], [18, 19], [19, 20]];
+
+const drawHandOverlay = (context, landmarks, color) => {
+  context.save();
+  context.strokeStyle = color;
+  context.fillStyle = '#ffffff';
+  context.lineWidth = 5;
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  HAND_CONNECTIONS.forEach(([start, end]) => {
+    context.beginPath();
+    context.moveTo(landmarks[start].x * context.canvas.width, landmarks[start].y * context.canvas.height);
+    context.lineTo(landmarks[end].x * context.canvas.width, landmarks[end].y * context.canvas.height);
+    context.stroke();
+  });
+  landmarks.forEach((landmark) => {
+    context.beginPath();
+    context.arc(landmark.x * context.canvas.width, landmark.y * context.canvas.height, 4, 0, Math.PI * 2);
+    context.fill();
+  });
+  context.restore();
+};
+
 const isPinching = (landmarks) => {
   const thumbIndexDistance = distance(landmarks[4], landmarks[8]);
   const indexToPalmDistance = distance(landmarks[8], landmarks[0]);
@@ -232,8 +255,7 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       else engine.guitarFallback.triggerAttackRelease(note, noteLength, now, velocity);
     } else if (instrumentId === 'tabla') {
       engine.tabla.detune = (tone - 0.5) * 1200;
-      if (engine.tabla.loaded) engine.tabla.triggerAttackRelease(note, noteLength, now, velocity);
-      else engine.tablaFallback.triggerAttackRelease(note === 'C2' ? 'C2' : 'G2', noteLength, now, velocity);
+      engine.tablaFallback.triggerAttackRelease(note === 'C2' ? 'C2' : 'G2', noteLength, now, velocity);
     } else if (instrumentId === 'flute') {
       engine.flute.detune = (tone - 0.5) * 1800;
       if (engine.flute.loaded) engine.flute.triggerAttackRelease(note, noteLength, now, velocity);
@@ -358,13 +380,10 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
         context.scale(-1, 1);
         context.drawImage(video, 0, 0, width, height);
         context.restore();
-        if (typeof window.drawConnectors === 'function' && typeof window.drawLandmarks === 'function') {
-          latestLandmarksRef.current.forEach((landmarks) => {
-            const mirroredLandmarks = landmarks.map((landmark) => ({ ...landmark, x: 1 - landmark.x }));
-            window.drawConnectors(context, mirroredLandmarks, window.HAND_CONNECTIONS, { color: instrument.color, lineWidth: 6 });
-            window.drawLandmarks(context, mirroredLandmarks, { color: '#ffffff', lineWidth: 2, radius: 6 });
-          });
-        }
+        latestLandmarksRef.current.forEach((landmarks) => {
+          const mirroredLandmarks = landmarks.map((landmark) => ({ ...landmark, x: 1 - landmark.x }));
+          drawHandOverlay(context, mirroredLandmarks, instrument.color);
+        });
       }
       handRenderRef.current = requestAnimationFrame(render);
     };
