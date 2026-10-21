@@ -2,7 +2,6 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { Camera, CircleStop, Hand, HelpCircle, Mic2, Play, Radio, Save, Sparkles, Volume2, X } from 'lucide-react';
 import * as Tone from 'tone';
 import '@mediapipe/hands';
-import '@mediapipe/camera_utils';
 import '@mediapipe/drawing_utils';
 import { mockSongs } from '../data/songsData';
 import { PlayerContext } from '../context/Playercontext';
@@ -20,6 +19,59 @@ const RECORDING_FORMATS = [
 ];
 
 const SOUNDFONT_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM';
+const MEDIAPIPE_HANDS_SCRIPT = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
+let handsScriptPromise;
+
+const isConstructible = (value) => {
+  if (typeof value !== 'function') return false;
+  try {
+    Reflect.construct(Object, [], value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const getHandsConstructor = () => {
+  const handsGlobal = window.Hands;
+  return [handsGlobal, handsGlobal?.Hands, handsGlobal?.default].find(isConstructible);
+};
+
+const loadHandsConstructor = () => {
+  const handsConstructor = getHandsConstructor();
+  if (handsConstructor) return Promise.resolve(handsConstructor);
+  if (handsScriptPromise) return handsScriptPromise;
+
+  handsScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector(`script[src="${MEDIAPIPE_HANDS_SCRIPT}"]`);
+    const script = existingScript || document.createElement('script');
+    const handleLoad = () => {
+      const loadedHandsConstructor = getHandsConstructor();
+      if (loadedHandsConstructor) {
+        script.dataset.loaded = 'true';
+        resolve(loadedHandsConstructor);
+      }
+      else reject(new Error('The hand-tracking library loaded without a usable Hands constructor.'));
+    };
+    const handleError = () => reject(new Error('The hand-tracking library could not be loaded.'));
+
+    script.addEventListener('load', handleLoad, { once: true });
+    script.addEventListener('error', handleError, { once: true });
+    if (!existingScript) {
+      script.src = MEDIAPIPE_HANDS_SCRIPT;
+      script.async = true;
+      document.head.appendChild(script);
+    } else if (script.dataset.loaded === 'true' || script.readyState === 'complete') {
+      handleLoad();
+    }
+  }).catch((error) => {
+    handsScriptPromise = undefined;
+    throw error;
+  });
+
+  return handsScriptPromise;
+};
+
 const SAMPLE_URLS = {
   guitar: {
     C3: `${SOUNDFONT_BASE}/acoustic_guitar_steel-mp3/C3.mp3`,
@@ -306,11 +358,13 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
         context.scale(-1, 1);
         context.drawImage(video, 0, 0, width, height);
         context.restore();
-        latestLandmarksRef.current.forEach((landmarks) => {
-          const mirroredLandmarks = landmarks.map((landmark) => ({ ...landmark, x: 1 - landmark.x }));
-          window.drawConnectors(context, mirroredLandmarks, window.HAND_CONNECTIONS, { color: instrument.color, lineWidth: 6 });
-          window.drawLandmarks(context, mirroredLandmarks, { color: '#ffffff', lineWidth: 2, radius: 6 });
-        });
+        if (typeof window.drawConnectors === 'function' && typeof window.drawLandmarks === 'function') {
+          latestLandmarksRef.current.forEach((landmarks) => {
+            const mirroredLandmarks = landmarks.map((landmark) => ({ ...landmark, x: 1 - landmark.x }));
+            window.drawConnectors(context, mirroredLandmarks, window.HAND_CONNECTIONS, { color: instrument.color, lineWidth: 6 });
+            window.drawLandmarks(context, mirroredLandmarks, { color: '#ffffff', lineWidth: 2, radius: 6 });
+          });
+        }
       }
       handRenderRef.current = requestAnimationFrame(render);
     };
@@ -451,10 +505,14 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
   }, [instrument.label, playInstrumentNote, setupAudio]);
 
   const startCamera = useCallback(async () => {
+    let stream;
     try {
       setCameraError('');
       await setupAudio();
-      const stream = await navigator.mediaDevices.getUserMedia({
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('This browser does not support camera access.');
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 30 } },
         audio: false,
       });
@@ -462,8 +520,9 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       if (!video) throw new Error('Camera preview is not ready. Please retry.');
       video.srcObject = stream;
       await video.play();
-      const hands = new window.Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+      const Hands = await loadHandsConstructor();
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
       });
       hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.55, minTrackingConfidence: 0.55 });
       hands.onResults(handleResults);
@@ -489,6 +548,8 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       setCameraStarted(true);
       setStatus('Hands ready: right-hand pinch triggers notes');
     } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
       setCameraError(error instanceof Error ? error.message : 'Camera access was not available.');
     }
   }, [handleResults, setupAudio]);
@@ -512,6 +573,8 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
     latestLandmarksRef.current = [];
     latestHandednessRef.current = [];
     handSlotsRef.current = { left: null, right: null };
+    const canvas = canvasRef.current;
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }, []);
 
   const startRecording = useCallback(() => {
@@ -522,14 +585,20 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       setStatus('Start the camera before recording');
       return;
     }
-    const cameraTrack = cameraStream.getVideoTracks()[0];
+    const canvas = canvasRef.current;
     const audioTrack = audioStream.getAudioTracks()[0];
-    if (!cameraTrack || !audioTrack || audioTrack.readyState !== 'live' || !audioTrack.enabled) {
+    if (!canvas?.captureStream || !audioTrack || audioTrack.readyState !== 'live' || !audioTrack.enabled) {
       setStatus('Camera and audio are not ready. Start the instrument sound check, then try again.');
       return;
     }
+    const canvasStream = canvas.captureStream(30);
+    const canvasTrack = canvasStream.getVideoTracks()[0];
+    if (!canvasTrack) {
+      setStatus('The browser could not capture the Air Studio preview. Try another browser.');
+      return;
+    }
     const combinedStream = new MediaStream([
-      cameraTrack.clone(),
+      canvasTrack,
       audioTrack.clone(),
     ]);
     const format = RECORDING_FORMATS.find((item) => item.id === recordingFormat) || availableFormats[0];
@@ -546,6 +615,7 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       audioBitsPerSecond: recordingQuality === 'standard' ? 64000 : 96000,
     });
     const actualMimeType = recorder.mimeType || mimeType;
+    setCameraError('');
     recorder.ondataavailable = (event) => {
       if (event.data.size) chunksRef.current.push(event.data);
     };
@@ -583,7 +653,7 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
       }, 100);
     };
     try {
-      recorder.start();
+      recorder.start(250);
     } catch (error) {
       combinedStream.getTracks().forEach((track) => track.stop());
       setCameraError(error instanceof Error ? `${error.message} Choose WebM format.` : 'This format could not start. Choose WebM format.');
@@ -783,11 +853,11 @@ export default function AirStudio({ songs = mockSongs, onSelectTrack }) {
 
         {recordingReview && <section className="scroll-mt-6 rounded-3xl border border-emerald-400/25 bg-slate-900/90 p-5 shadow-2xl shadow-emerald-950/20" aria-label="Performance review">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-300">Performance review</p><h2 className="mt-1 text-xl font-black">Check your recording before saving</h2></div><button type="button" onClick={closeRecordingReview} className="flex items-center gap-2 self-start rounded-full border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-rose-400 hover:text-rose-300"><X size={15} /> Discard</button></div>
-          <video key={recordingReview.url} src={recordingReview.url} controls playsInline muted={false} preload="metadata" className="mt-4 max-h-[28rem] w-full rounded-2xl bg-black" onLoadedMetadata={(event) => { const duration = event.currentTarget.duration; const url = event.currentTarget.currentSrc; setRecordingReview((review) => review && review.url === url ? { ...review, duration: Number.isFinite(duration) ? duration : 0 } : review); }} onError={() => setCameraError('The recording preview could not be decoded by this browser. The original recording is still available to save.')} />
+          <video key={recordingReview.url} src={recordingReview.url} controls playsInline muted={false} preload="metadata" className="mt-4 max-h-[28rem] w-full rounded-2xl bg-black" onLoadedMetadata={(event) => { const duration = event.currentTarget.duration; const url = event.currentTarget.currentSrc; setRecordingReview((review) => review && review.url === url ? { ...review, duration: Number.isFinite(duration) ? duration : 0 } : review); }} onError={() => setCameraError(`The ${recordingReview.format} recording could not be decoded by this browser. Download it or choose WebM format.`)} />
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4"><div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-500">Format</p><p className="font-bold">{recordingReview.format}</p></div><div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-500">Duration</p><p className="font-bold">{recordingReview.duration > 0 ? `${recordingReview.duration.toFixed(1)} sec` : 'Loading...'}</p></div><div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-500">Size</p><p className="font-bold">{formatBytes(recordingReview.size)}</p></div><div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-500">Quality</p><p className="font-bold capitalize">{recordingQuality}</p></div></div>
           <button type="button" onClick={saveRecording} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 font-black text-slate-950 transition hover:bg-emerald-300"><Save size={17} /> Save & Download {recordingReview.format}</button>
         </section>}
-        {cameraError && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{cameraError} Allow camera access and try again.</p>}
+        {cameraError && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{cameraError}</p>}
       </div>
     </main>
   );
